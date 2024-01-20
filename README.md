@@ -55,6 +55,7 @@ to help the generator control what type of props are allowed to spawn, then the 
 
 <h1> How to implement. </h1>
 <p>Implementing this sytem at this time does take a few steps. This section will detail how to implement using the example pieces provided. If you'd like to create using a system from scratch please see the docuemntation.</p>
+
 1. Create an empty object and assign the **MazeController** and **MazeResourceStore** (This object is a global). 
 2. In the **MazeResourceStore** create a theme and assign some basic prefabs for walls, floors, roofs, doors, respective traps, and generic props.
 
