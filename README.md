@@ -67,5 +67,14 @@ to help the generator control what type of props are allowed to spawn, then the 
 
 5. If you're going to include hallways, in the **HallwayGenerator** a hallway prefab needs to be set (This is also included)
 
+<h1>Unity packs used in the example</h1>
+<p>I am not a designer, so I used many Unity packs to help with my creations. In the pictures above I have used a lot of different props from "Syntey Studios" packs. They are easy to use and they look nice. Here is the list used to create the maze:</p>
+
+- [Low Poly Dungeons (Walls,Floors,Props)](https://assetstore.unity.com/packages/3d/environments/dungeons/low-poly-dungeons-176350)
+- [Polygon Dungeon (Walls,Floors,Props)](https://assetstore.unity.com/packages/3d/environments/dungeons/polygon-dungeons-low-poly-3d-art-by-synty-102677)
+- [Polygon Fanstasy Kingom](https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-fantasy-kingdom-low-poly-3d-art-by-synty-164532)
+- [Polygon Horror Mansion (Props)](https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-horror-mansion-low-poly-3d-art-by-synty-213346)
+- [Polygon Prototype (Materials)](https://assetstore.unity.com/packages/3d/props/exterior/polygon-prototype-low-poly-3d-art-by-synty-137126)
+
 
 
