@@ -70,6 +70,7 @@ to help the generator control what type of props are allowed to spawn, then the 
 <h1>Unity packs used in the example</h1>
 <p>I am not a designer, so I used many Unity packs to help with my creations. In the pictures above I have used a lot of different props from "Syntey Studios" packs. They are easy to use and they look nice. Here is the list used to create the maze:</p>
 
+- [Cartoon Grass (Props)](https://assetstore.unity.com/packages/3d/vegetation/cartoon-grass-and-plants-221724)
 - [Low Poly Dungeons (Walls,Floors,Props)](https://assetstore.unity.com/packages/3d/environments/dungeons/low-poly-dungeons-176350)
 - [Polygon Dungeon (Walls,Floors,Props)](https://assetstore.unity.com/packages/3d/environments/dungeons/polygon-dungeons-low-poly-3d-art-by-synty-102677)
 - [Polygon Fanstasy Kingom](https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-fantasy-kingdom-low-poly-3d-art-by-synty-164532)
