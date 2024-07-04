@@ -1,9 +1,10 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 /// <summary>
 /// Extends <see cref="MazeController"/> to generator hallways connecting rooms throughout a maze to help create a more unique
@@ -30,6 +31,16 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// Contains a list of <see cref="Vector3Int"/> of already merged cell positions to not try to merge them again.
     /// </summary>
     private List<Vector3Int> MergedCellPositions = new List<Vector3Int>();
+
+    /// <summary>
+    /// Maze grid is slow at updating in async functions for some reason. If we keep a list of
+    /// seen positions while generating the maze we reduce the amount of duplicate hallways to ZERO.
+    /// 
+    /// Future me:
+    /// yes I tried many things to not go this route, but I went insane and then came back
+    /// and then found this worked amazingly everytime.
+    /// </summary>
+    List<Vector3Int> Seen = new List<Vector3Int>();
 
     /// <summary>
     /// Gets the <see cref="Maze"/> instance to use for accessing important properties.
@@ -75,6 +86,9 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         this.CreateHallwayRoots();
         await this.CreateHallwayCells();
         this.FindPossibleBridges();
+
+        // Make random hallway spots. This keeps the maze a little less boring.
+        await CreateHallwayAlleys();
 
         // Generate the hallways. The hallways will handle important things like
         // what walls to display, allowable props. This is important info to have
@@ -132,6 +146,39 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         this.hallwayGenerated = true;
     }
 
+    private async Task CreateHallwayAlleys()
+    {
+        List<HallwayMono> hallways = this.HallwayCells.ToList();
+        hallways.AddRange(this.HallwayRoots);
+        foreach (var cell in hallways)
+        {
+            // 20% chance to spawn an alley.
+            if (Random.Range(0, 100) > 20) continue;
+
+            // How many alleys should we spawn?
+            int distance = Random.Range(2, 5);
+
+            Cell hallway = cell.GridBounds[0];
+
+            for (int i = 0; i < distance; i++)
+            {
+                // Grab neighbors that are empty. Continue is there is none.
+                List<Cell> neighbors = Maze.Grid.Neighbors(hallway).Where(r => r.Type == CellType.None).ToList();
+                if (neighbors.Count() == 0) continue;
+
+                Cell chosenCell = neighbors.Random();
+
+                GameObject newHall = InstantiateHallway(chosenCell.Position + new Vector3Int(0, 2, 0), quaternion.identity, this.transform, true);
+                if (newHall == null) continue;
+
+                HallwayMono hall = newHall.GetComponent<HallwayMono>();
+                hallway = hall.GridBounds[0];
+
+                this.HallwayCells.Add(hall);
+            }
+        }
+    }
+
     /// <summary>
     /// Find possible 'bridge' connections where two hallways are two spots away.
     /// See: https://i.gyazo.com/92198e40ce001212525f9d83565f3b18.png
@@ -164,7 +211,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             foreach (Cell bridgeCell in bridgeNeighbors)
             {
                 // Make sure these two do not have an existing connection.
-                if (Maze.DoorRegistry.HasConnection(hCell.Room, bridgeCell.Room)) continue;
+                if (Maze.DoorRegistry.GetConnections(hCell.Room, bridgeCell.Room).Count != 0) 
+                    continue;
 
                 // Make sure not a child of the same room.
                 if (hCell.Room == bridgeCell.Room) continue;
@@ -172,7 +220,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 // Create a bridge to connect them.
                 // At this point we know both rooms are <see cref="Hallway"/> instances.
                 HallwayMono B = bridgeCell.Room.GetComponent<HallwayMono>();
-                
+
                 // This cell is already known.
                 if (connected.Contains(B))
                     continue;
@@ -278,7 +326,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         }
 
         // Does this cell have any children connections?
-        foreach (var pair in Maze.DoorRegistry.GetConnections(B))
+        foreach (var pair in Maze.DoorRegistry.Get(B))
         {
             Maze.DoorRegistry.SetConnection(pair.Door, root);
         }
@@ -288,6 +336,9 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         {
             cells.Room = root;
         }
+
+        // Rename
+        B.gameObject.name = "DELETED";
 
         // Destroy.
         if (destroyOnMerge)
@@ -510,7 +561,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 APOS.z -= 4;
         }
 
-        if (Maze.Grid[APOS.RoundToInt()].Type != CellType.None) return null;
+        if (Seen.Contains(APOS.RoundToInt())) return null;
 
         GameObject newHallwayCell = InstantiateHallway(APOS.RoundToInt(), quaternion.identity, this.transform, false);
         HallwayMono newHallway = newHallwayCell.GetComponent<HallwayMono>();
@@ -596,6 +647,10 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <returns></returns>
     private GameObject InstantiateHallway(Vector3Int position, Quaternion rotation, Transform parent, bool checkForCollision = true)
     {
+        // Have we seen this position? If not, add it.
+        if (Seen.Contains(position)) return null;
+        Seen.Add(position);
+
         GameObject newHallway = Instantiate(HallwayPrefab, position, rotation, parent); 
         Bounds newRootBounds = newHallway.transform.BoundingBox();
 
@@ -614,7 +669,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         HallwayMono hallwayProp = newHallway.GetComponent<HallwayMono>();
 
         // Add bounds to grid.
-        Maze.Grid.AddBounds(hallwayProp, newRootBounds, position, CellType.Hallway);
+        Maze.Grid.AddBounds(hallwayProp, CellType.Hallway);
 
         return newHallway;
     }
@@ -709,5 +764,15 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private bool DetermineIfPositiveOrNegative(float a, float b)
     {
         return (a - b < 0);
+    }
+
+    /// <summary>
+    /// Confirm a tile is empty.
+    /// </summary>
+    /// <param name="tile"></param>
+    /// <returns></returns>
+    private bool ConfirmEmptyTile(Vector3Int tile)
+    {
+        return this.Maze.Grid[tile].Type == CellType.None;
     }
 }

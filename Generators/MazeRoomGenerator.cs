@@ -370,7 +370,7 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         }
         else
         {
-            this.Maze.Grid.AddBounds(room, room.transform.BoundingBox(), room.transform.position.RoundToInt(), CellType.Room);
+            this.Maze.Grid.AddBounds(room, CellType.Room);
         }
 
         return cells;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
+using UnityEditor.MemoryProfiler;
 using UnityEngine;
 
 /// <summary>
@@ -16,15 +17,14 @@ public class DoorPair
     /// <param name="a">The originating point.</param>
     /// <param name="b">The point that is being connected to. Can be null</param>
     /// <exception cref="System.ArgumentNullException"></exception>
-    public DoorPair(GameObject door, RoomMono a, RoomMono b)
+    public DoorPair(GameObject door, RoomMono A, RoomMono B = null)
     {
-        if (door == null || a == null)
-            throw new System.ArgumentNullException("Door or A is null.");
+        this.Door = door;
+        this.A = A;
+        this.B = B;
 
-        Door = door;
-        A = a;
-        B = b;
-
+        // 12/14/2023
+        // Does this do anything? My git is broken, can't test. Too scared.
         door.GetComponent<RoomFixtureMono>().IsRegistered = true;
     }
 
@@ -34,14 +34,48 @@ public class DoorPair
     public GameObject Door;
 
     /// <summary>
-    /// Gets the originating point.
+    /// Gets the door for this pair.
     /// </summary>
     public RoomMono A;
 
     /// <summary>
-    /// Get the connected point.
+    /// Gets the door for this pair.
     /// </summary>
     public RoomMono B;
+
+    /// <summary>
+    /// Returns the other room connected to this door.
+    /// </summary>
+    /// <param name="currentRoom">The current room.</param>
+    /// <returns>The other room connected to the door.</returns>
+    public RoomMono GetOtherRoom(RoomMono currentRoom)
+    {
+        if (currentRoom == A)
+            return B;
+        else if (currentRoom == B)
+            return A;
+        else
+            throw new ArgumentException("The specified room is not connected to this door.");
+    }
+
+    /// <summary>
+    /// Checks if both rooms is connected.
+    /// </summary>
+    /// <returns></returns>
+    public bool IsComplete()
+    {
+        return A != null && B != null;
+    }
+
+    /// <summary>
+    /// Checks if the given room is connected to this door.
+    /// </summary>
+    /// <param name="room">The room to check.</param>
+    /// <returns>True if the room is connected, otherwise false.</returns>
+    public bool CheckConnection(RoomMono room)
+    {
+        return room == A || room == B;
+    }
 }
 
 /// <summary>
@@ -52,6 +86,13 @@ public class DoorPair
 /// </summary>
 public class DoorPairMono : MonoBehaviour
 {
+    public DoorPairMono(DoorPair doorPair)
+    {
+        this.Door = doorPair.Door;
+        this.A = doorPair.A;
+        this.B = doorPair.B;
+    }
+
     /// <summary>
     /// The GameObject representing the actual door within the game world.
     /// This is the physical door that players can interact with.
@@ -93,44 +134,45 @@ public class DoorRegistry : MonoBehaviour
     }
 
     /// <summary>
-    /// Add a new connection point with the connecting object not yet set.
+    /// Add a new door to the registry.
     /// </summary>
     /// <param name="door"></param>
-    /// <param name="A"></param>
+    /// <param name="rooms"></param>
     /// <returns></returns>
-    public DoorPair Add(GameObject door, RoomMono A)
+    /// <exception cref="InvalidOperationException"></exception>
+    public DoorPair Add(GameObject door, RoomMono A, RoomMono B = null)
     {
-        return this.Add(door, A, null);
-    }
-
-    /// <summary>
-    /// Add a new connection point with the connection point known.
-    /// </summary>
-    /// <param name="door"></param>
-    /// <param name="A"></param>
-    /// <param name="B"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    public DoorPair Add(GameObject door, RoomMono A, RoomMono B)
-    {
-        if (door == null || A == null)
-            throw new ArgumentNullException("Door or A is null.");
-
-        DoorPair newConnection = new DoorPair(door, A, B);
-
         if (doors.ContainsKey(door))
-        {
-            throw new ArgumentException("There is already a connection with that door.");
-        }
+            throw new InvalidOperationException("A door already exists in this collection. Unregister the door, or update the collection.");
 
-        doors.Add(door, new DoorPair(door, A, B));
+        DoorPair newPair = new DoorPair(door, A, B);
+        doors.Add(door, newPair);
 
         updateRequired = true;
-        return newConnection;
+        return newPair;
     }
 
     /// <summary>
-    /// Grab connection information for a <see cref="GameObject"/> door.
+    /// Return an instance of a door based on its position.
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    public GameObject Get(Vector3Int position, float offset = 4f)
+    {
+        foreach (GameObject go in doors.Keys)
+        {
+            // Calculate the distance between the current GameObject's position and the given position
+            if (Vector3.Distance(go.transform.position, position) <= offset)
+            {
+                return go;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Grab an existing <see cref="DoorPair"/> entry based on a door. 
     /// </summary>
     /// <param name="door"></param>
     /// <returns></returns>
@@ -141,198 +183,75 @@ public class DoorRegistry : MonoBehaviour
     }
 
     /// <summary>
-    /// Grab connection information for a <see cref="RoomMono"/>.
+    /// Grab an array of <see cref="DoorPair"/> that contains a connection to this room.
     /// </summary>
     /// <param name="room"></param>
     /// <returns></returns>
     public List<DoorPair> Get(RoomMono room)
     {
-        List<DoorPair> connections = new List<DoorPair>();
-        foreach (DoorPair door in doors.Values)
-        {
-            if (door.Door == null)
-            {
-                updateRequired = true;
-                continue;
-            }
-
-            if (door.A == room) connections.Add(door);
-        }
-
-        return connections;
+        return doors.Values.Where(r => r.CheckConnection(room)).ToList();
     }
 
     /// <summary>
-    /// Grab connection information for a <see cref="RoomMono"/> where pairs are complete.
+    /// Grabs an array of <see cref="DoorPair"/> where there is a maximum of one connection points.
     /// </summary>
-    /// <param name="room"></param>
     /// <returns></returns>
-    public List<DoorPair> GetTaken(RoomMono room)
+    public List<DoorPair> GetAvailable()
     {
-        List<DoorPair> connections = new List<DoorPair>();
-        foreach (DoorPair door in doors.Values)
-        {
-            if (door.Door == null)
-            {
-                updateRequired = true;
-                continue;
-            }
-
-            if (door.A == room && door.B != null) connections.Add(door);
-        }
-
-        return connections;
+        return doors.Values.Where(r => !r.IsComplete()).ToList();
     }
 
     /// <summary>
-    /// Grab connection information for a <see cref="RoomMono"/> where pairs are incomplete.
+    /// Grab an array of <see cref="DoorPair"/> instance where there is a maximum of one connection points.
     /// </summary>
     /// <param name="room"></param>
     /// <returns></returns>
     public List<DoorPair> GetAvailable(RoomMono room)
     {
-        List<DoorPair> connections = new List<DoorPair>();
-        foreach (DoorPair door in doors.Values)
-        {
-            if (door.Door == null)
-            {
-                updateRequired = true;
-                continue;
-            }
-
-            if (door.A == room && door.B == null) connections.Add(door);   
-        }
-
+        var connections = doors.Values.Where(door => door.Door != null && door.A == room && door.B == null).ToList();
+        updateRequired = doors.Values.Any(door => door.Door == null);
         return connections;
     }
 
     /// <summary>
-    /// Grab connection information for all available rooms.
-    /// </summary>
-    /// <returns></returns>
-    public List<DoorPair> GetAllAvailable()
-    {
-        List<DoorPair> connections = new List<DoorPair>();
-        foreach (var pair in doors.Values)
-        {
-            if (pair.B == null) connections.Add(pair);
-        }
-
-        return connections;
-    }
-
-    /// <summary>
-    /// Returns whether two <see cref="RoomMono"/> has connection between each other.
-    /// </summary>
-    /// <param name="A"></param>
-    /// <param name="B"></param>
-    /// <returns></returns>
-    public bool HasConnection(RoomMono A, RoomMono B)
-    {
-        return GetConnection(A, B) != null;
-    }
-
-    /// <summary>
-    /// Returns the connection between two <see cref="RoomMono"/> .
-    /// </summary>
-    /// <param name="A"></param>
-    /// <param name="B"></param>
-    /// <returns></returns>
-    public DoorPair GetConnection(RoomMono A, RoomMono B)
-    {
-        foreach (DoorPair door in Get(A))
-        {
-            bool C = door.A == A || door.A == B;
-            bool D = door.B == A || door.B == B;
-            if (C && D) return door;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Grab connection information for a <see cref="RoomMono"/> where it's the originating point, or the connection point.
+    /// Grab an array of <see cref="DoorPair"/> instances where there is a minimum of two connection points.
     /// </summary>
     /// <param name="room"></param>
     /// <returns></returns>
-    public List<DoorPair> GetConnections(RoomMono room)
+    public List<DoorPair> GetComplete(RoomMono room)
     {
-        if (room == null) return null;
-
-        List<DoorPair> connections = new List<DoorPair>();
-        foreach (DoorPair door in doors.Values)
-        {
-            if (door.A == room) connections.Add(door);
-            if (door.B == room) connections.Add(door);
-        }
-
-        return connections;
+        return doors.Values.Where(r => r.CheckConnection(room) && r.IsComplete()).ToList();
     }
 
     /// <summary>
-    /// Find the best path between two rooms.
+    /// Retrieve a list of <see cref="DoorPair"/> instances found where two <see cref="RoomMono"/> contain a connection.
     /// </summary>
-    /// <param name="A">The starting room.</param>
-    /// <param name="B">The destination room.</param>
-    /// <returns></returns>
-    public List<Tuple<RoomMono, GameObject>> FindBestPath(RoomMono A, RoomMono B)
+    /// <param name="A"></param>
+    /// <param name="B"></param>
+    /// <returns>Null if not found.</returns>
+    public List<DoorPair> GetConnections(RoomMono A, RoomMono B)
     {
-        // A list of connections needed to get the best path.
-        List<Tuple<RoomMono, GameObject>> connections = new List<Tuple<RoomMono, GameObject>>();
+        List<DoorPair> connections = new List<DoorPair>();
 
-        // Check if A and B are directly related so we can avoid my spaghetti.
-        if (HasConnection(B,A))
+        foreach (DoorPair pair in Get(A))
         {
-            // Grab the connections, return the first matching one.
-            foreach (DoorPair pair in GetConnections(A))
-                if (pair.B == A)
-                    connections.Add(new Tuple<RoomMono, GameObject>(B, pair.Door));
-
-            return connections;
+            if (pair.CheckConnection(B))
+            {
+                if (connections.Contains(pair)) continue;
+                connections.Add(pair);
+            }    
         }
 
-        // List of rooms yet explored, we'll add A in this first.
-        Queue<RoomMono> roomsToExplore = new Queue<RoomMono>();
-        roomsToExplore.Enqueue(A);
-
-        // A list of rooms previously explored. 
-        Dictionary<RoomMono, RoomMono> previousRoom = new Dictionary<RoomMono, RoomMono>();
-
-        while (roomsToExplore.Count > 0)
+        foreach (DoorPair pair in Get(B))
         {
-            RoomMono currentRoom = roomsToExplore.Dequeue();
-
-            if (currentRoom == null) continue;
-
-            // Check if we've reached the target room, if so we want to reconstruct the path.
-            if (currentRoom == B)
+            if (pair.CheckConnection(A))
             {
-                while (currentRoom != A)
-                {
-                    // Add connections in reverse order to get the path from A to B
-                    connections.Add(new Tuple<RoomMono, GameObject>(currentRoom, GetConnection(previousRoom[currentRoom], currentRoom).Door));
-                    currentRoom = previousRoom[currentRoom];
-                }
-
-                // Reverse the list to get the path from A to B
-                connections.Reverse();
-                return connections;
-            }
-
-            // Explore connected rooms, queue their rooms to be searched too.
-            foreach (DoorPair pair in GetConnections(currentRoom))
-            {
-                RoomMono nextRoom = pair.B;
-                if (!previousRoom.ContainsKey(nextRoom))
-                {
-                    roomsToExplore.Enqueue(nextRoom);
-                    previousRoom[nextRoom] = currentRoom;
-                }
+                if (connections.Contains(pair)) continue;
+                connections.Add(pair);
             }
         }
 
-        // No path found
-        return null;
+        return connections;
     }
 
     /// <summary>
@@ -344,19 +263,6 @@ public class DoorRegistry : MonoBehaviour
     {
         updateRequired = true;
         return doors.Remove(door);
-    }
-
-    /// <summary>
-    /// Remove all connection points that include a <see cref="RoomMono"/> as an originating point.
-    /// </summary>
-    /// <param name="room"></param>
-    /// <returns></returns>
-    public bool RemoveAll(RoomMono room)
-    {
-        foreach (GameObject door in room.Doors)
-            Remove(door);
-
-        return true;
     }
 
     /// <summary>

@@ -5,8 +5,11 @@ using UnityEngine;
 [RequireComponent(typeof(MazeRoomGenerator))]
 [RequireComponent(typeof(MazeHallwayGenerator))]
 [RequireComponent(typeof(MazeItemGenerator))]
+[RequireComponent (typeof(PathFinding))]
 public class MazeController : MonoBehaviour
 {
+    public GameObject debugCube;
+
     /// <summary>
     /// Has the maze finished generating?
     /// </summary>
@@ -34,6 +37,11 @@ public class MazeController : MonoBehaviour
     public MazeItemGenerator Items { get; private set; }
 
     /// <summary>
+    /// Helps with pathfinding around the maze.
+    /// </summary>
+    public PathFinding PathFinder { get; private set; }
+
+    /// <summary>
     /// Helps with path-finding and keeping the positions of rooms/hallways.
     /// </summary>
     public MazeGrid Grid;
@@ -48,6 +56,7 @@ public class MazeController : MonoBehaviour
         this.Rooms = this.GetComponent<MazeRoomGenerator>();
         this.Hallways = this.GetComponent<MazeHallwayGenerator>();
         this.Items = this.GetComponent<MazeItemGenerator>();
+        this.PathFinder = this.GetComponent<PathFinding>();
 
         await this.Rooms.Generate();
         await this.Hallways.Generate();
@@ -67,7 +76,7 @@ public class MazeController : MonoBehaviour
     private async Task CleanupDoors()
     {
         // Remove doors without connections.
-        foreach (DoorPair pair in DoorRegistry.GetAllAvailable())
+        foreach (DoorPair pair in DoorRegistry.GetAvailable())
         {
             await pair.A.TurnDoorIntoWall(pair.Door);
         }
@@ -112,8 +121,8 @@ public class MazeController : MonoBehaviour
             directNeighborCell.Type = CellType.Door;
 
             // Debug cubes.
-            //Instantiate(debugCube, existingCell.Position, quaternion.identity, this.transform);
-            //Instantiate(debugCube, directNeighborCell.Position, quaternion.identity, this.transform);
+            //Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);
+            //Instantiate(debugCube, directNeighborCell.Position, Quaternion.identity, this.transform);
         }
     }
 }

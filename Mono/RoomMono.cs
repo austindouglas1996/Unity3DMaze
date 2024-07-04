@@ -480,6 +480,8 @@ public class RoomMono : MonoBehaviour
                 {
                     newObject = Instantiate(Style.FloorsPrefabs.Random(), parent.position, parent.rotation);
                 }
+
+                newObject.layer = 3;
                 break;
             case RoomFixtureIdentityType.Wall:
                 switch (sub)

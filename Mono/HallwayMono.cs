@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
@@ -44,10 +43,20 @@ public class HallwayMono : RoomMono
         Cell rightC = Grid.Neighbor(Cell, SpatialOrientation.Right);
         Cell leftC = Grid.Neighbor(Cell, SpatialOrientation.Left);
 
-        up = await HandleWallVisibility(upC, maze, SpatialOrientation.Up);
-        right = await HandleWallVisibility(rightC, maze, SpatialOrientation.Right);
-        down = await HandleWallVisibility(downC, maze, SpatialOrientation.Down);
-        left = await HandleWallVisibility(leftC, maze, SpatialOrientation.Left);
+        if (upC.Type == CellType.Hallway && downC.Type == CellType.Hallway && rightC.Type == CellType.Hallway && leftC.Type == CellType.Hallway)
+        {
+            up = false;
+            right = false;
+            left = false;
+            down = false;
+        }
+        else
+        {
+            up = await HandleWallVisibility(upC, maze, SpatialOrientation.Up);
+            right = await HandleWallVisibility(rightC, maze, SpatialOrientation.Right);
+            down = await HandleWallVisibility(downC, maze, SpatialOrientation.Down);
+            left = await HandleWallVisibility(leftC, maze, SpatialOrientation.Left);
+        }
 
         // Asign the sizes of props allowed depending on some rules.
         AssignPropSizes(up, right, down, left);
@@ -140,7 +149,7 @@ public class HallwayMono : RoomMono
                 SetPropSize(SpatialOrientation.Left, PropSize.SuperSmall);
 
                 SetPropSize(SpatialOrientation.Up, PropSize.Special); 
-                SetFacingDirection(SpatialOrientation.Up, SpatialOrientation.Down);
+                //SetFacingDirection(SpatialOrientation.Up, SpatialOrientation.Down);
             }
             if (!right)
             {
@@ -148,7 +157,7 @@ public class HallwayMono : RoomMono
                 SetPropSize(SpatialOrientation.Down, PropSize.SuperSmall);
                 SetPropSize(SpatialOrientation.Left, PropSize.SuperSmall);
 
-                SetPropSize(SpatialOrientation.Right, PropSize.Special); SetFacingDirection(SpatialOrientation.Right, SpatialOrientation.Left);
+                SetPropSize(SpatialOrientation.Right, PropSize.Special); //SetFacingDirection(SpatialOrientation.Right, SpatialOrientation.Left);
             }
             if (!left)
             {
@@ -156,7 +165,7 @@ public class HallwayMono : RoomMono
                 SetPropSize(SpatialOrientation.Down, PropSize.SuperSmall);
                 SetPropSize(SpatialOrientation.Right, PropSize.SuperSmall);
 
-                SetPropSize(SpatialOrientation.Left, PropSize.Special); SetFacingDirection(SpatialOrientation.Left, SpatialOrientation.Right);
+                SetPropSize(SpatialOrientation.Left, PropSize.Special); //SetFacingDirection(SpatialOrientation.Left, SpatialOrientation.Right);
             }
             if (!down)
             {
@@ -164,7 +173,7 @@ public class HallwayMono : RoomMono
                 SetPropSize(SpatialOrientation.Right, PropSize.SuperSmall);
                 SetPropSize(SpatialOrientation.Left, PropSize.SuperSmall);
 
-                SetPropSize(SpatialOrientation.Down, PropSize.Special); SetFacingDirection(SpatialOrientation.Down, SpatialOrientation.Up);
+                SetPropSize(SpatialOrientation.Down, PropSize.Special); //SetFacingDirection(SpatialOrientation.Down, SpatialOrientation.Up);
             }
         }
     }
@@ -237,19 +246,6 @@ public class HallwayMono : RoomMono
 
         RoomFixtureMono piece = go.GetComponent<RoomFixtureMono>();
         piece.Size = size;
-    }
-
-    /// <summary>
-    /// Set the direction a prop should be facing.
-    /// </summary>
-    /// <param name="direction"></param>
-    /// <param name="propFacingDirection"></param>
-    private void SetFacingDirection(SpatialOrientation direction, SpatialOrientation propFacingDirection)
-    {
-        Transform go = Get(direction);
-        RoomFixtureMono piece = go.GetComponent<RoomFixtureMono>();
-        //piece.Direction = propFacingDirection;
-        Debug.LogError("HallwayMono line 252 tried set direction.");
     }
 
     /// <summary>

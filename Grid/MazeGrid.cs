@@ -128,14 +128,19 @@ public class MazeGrid
     /// <param name="position"></param>
     /// <param name="offset"></param>
     /// <returns></returns>
-    public Cell Find(Vector3 position, int offset = 4)
+    public Cell Find(Vector3 position, float tolerance = 0.1f)
     {
+        float tileSize = 4f;
+
         foreach (Cell cell in Cells)
         {
-            // Check if the child's position is within the offset range
-            if (Mathf.Abs(cell.Position.x - position.x) <= offset &&
-                Mathf.Abs(cell.Position.y - position.y) <= offset &&
-                Mathf.Abs(cell.Position.z - position.z) <= offset)
+            // Calculate the half size of the tile
+            float halfTileSize = tileSize / 2;
+
+            // Check if the position is within the bounds of the tile, considering a small tolerance
+            if (Mathf.Abs(cell.Position.x - position.x) < halfTileSize + tolerance &&
+                Mathf.Abs(cell.Position.y - position.y) < halfTileSize + tolerance &&
+                Mathf.Abs(cell.Position.z - position.z) < halfTileSize + tolerance)
             {
                 return cell;
             }
@@ -194,119 +199,37 @@ public class MazeGrid
         return closestCell;
     }
 
-    /// <summary>
-    /// Path find the way across cells that may include different rooms.
-    /// </summary>
-    /// <param name="destPosition"></param>
-    /// <param name="currPosition"></param>
-    /// <param name="bufferDistanceInTiles"></param>
-    /// <returns></returns>
-    public Stack<Cell> PathFindRooms(Vector3Int destPosition, Vector3Int currPosition, int bufferDistanceInTiles = 15)
-    {
-        Stack<Cell> cells = new Stack<Cell>();
-
-        // Current and destination spot.
-        Cell currentCell = this[destPosition];
-        Cell destinationCell = this[currPosition];
-
-        // Determine whether we're travelling across rooms.
-        if (currentCell.Room != destinationCell.Room)
-        {
-            var roomPaths = this.Maze.DoorRegistry.FindBestPath(currentCell.Room, destinationCell.Room);
-            if (roomPaths == null)
-                return null;
-
-            // Go through the rooms recording positions from door to door.
-            Vector3Int externalDestPosition = Vector3Int.one;
-            Vector3Int externalCurrPosition = currPosition;
-            foreach (Tuple<RoomMono, GameObject> entries in roomPaths)
-            {
-                // Set destination to room B door.
-                externalDestPosition = Find(entries.Item2.transform.position.RoundToInt()).Position;
-
-                // Grab the path for that room and then push into the current collection.
-                Stack<Cell> stopCells = PathFindSameRoom(externalDestPosition, externalCurrPosition, bufferDistanceInTiles);
-                foreach (Cell cell in stopCells)
-                    cells.Push(cell);
-
-                // Change current position to destination.
-                externalCurrPosition = externalDestPosition;
-            }
-
-            // Change our current position to the last destination as we have reached this location from our past foreach.
-            currPosition = externalDestPosition;
-
-            // Now we're in the same room so let's push positions.
-            Stack<Cell> sameRoomCells = PathFindSameRoom(destPosition, currPosition, bufferDistanceInTiles);
-            if (sameRoomCells == null)
-                return null;
-
-            foreach (Cell cell in sameRoomCells)
-                cells.Push(cell);
-
-            // Reverse the stack.
-            Stack<Cell> tempCell = new Stack<Cell>();
-            while (cells.Count != 0)
-                tempCell.Push(cells.Pop());
-
-            cells = tempCell;
-        }
-        else
-        {
-            cells = PathFindSameRoom(destPosition, currPosition, bufferDistanceInTiles);
-        }
 
 
-        return cells;
-    }
+
+
+
+
+
+
 
     /// <summary>
-    /// Path find through cells on how to reach a destination.
+    /// Calculate the distance between two <see cref="Vector3Int"/>.
     /// </summary>
-    /// <param name="destPosition"></param>
-    /// <param name="currPosition"></param>
+    /// <param name="C1"></param>
+    /// <param name="C2"></param>
     /// <returns></returns>
-    /// <remarks>This function assumes visiting CellType.None is not allowed.</remarks>
-    public Stack<Cell> PathFindSameRoom(Vector3Int destPosition, Vector3Int currPosition, int bufferDistanceInTiles = 15)
+    private static int CalculateDistance(Vector3Int C1, Vector3Int C2)
     {
-        Stack<Cell> cells = new Stack<Cell>();
-        HashSet<Vector3Int> visited = new HashSet<Vector3Int>();
+        // Calculate the absolute difference in x, y, and z coordinates (Manhattan distance)
+        int x = Mathf.Abs(C1.x - C2.x);
+        int y = Mathf.Abs(C1.y - C2.y);
+        int z = Mathf.Abs(C1.z - C2.z);
 
-        // Current and destination spot.
-        Cell currentCell = this[destPosition];
-        Cell destinationCell = this[currPosition];
-
-        // Do not allow us visit empty tiles.
-        if (currentCell.Type == CellType.None || destinationCell.Type == CellType.None)
-            throw new System.ArgumentException("Start or destination type has no tile.");
-
-        // Do not allow cross room crossing.
-        //if (currentCell.Room != destinationCell.Room && destinationCell.Type != CellType.Door || currentCell.Type != CellType.Door)
-            //throw new System.NotSupportedException("Both cells go to different rooms. Cross room travelling not allowed.");
-
-        // Set the buffer distance. (Distance / CellSize) * CellSize
-        bufferDistanceInTiles = (CalculateDistance(destPosition, currPosition) / 4) * 4;
-
-        while (currentCell != destinationCell && bufferDistanceInTiles > 0)
-        {
-            cells.Push(currentCell);
-            visited.Add(currentCell.Position);
-
-            // Get the next cell.
-            Cell nextCell = FindBestPossibleNextCell(currentCell, destinationCell, visited);
-
-            if (nextCell == null)
-            {
-                // No path can be located to the current destination.
-                return null;
-            }
-
-            currentCell = nextCell;
-            bufferDistanceInTiles--;
-        }
-
-        return cells;
+        return x + y + z;
     }
+
+
+
+
+
+
+
 
     /// <summary>
     /// Add a new room bounds to the grid. The only bounds that will be added is those that contain the name "Floor".
@@ -314,43 +237,36 @@ public class MazeGrid
     /// <param name="bounds"></param>
     /// <param name="position"></param>
     /// <param name="type"></param>
-    public List<Cell> AddBounds(RoomMono room, Bounds bounds, Vector3Int position, CellType type)
+    public List<Cell> AddBounds(RoomMono room, CellType type)
     {
         if (room == null)
             throw new System.ArgumentException("Room is null.");
 
         List<Cell> newBounds = new List<Cell>();
 
-        // Calculate the minimum and maximum corners of the bounds in world space
-        Vector3Int minCorner = (bounds.center - bounds.extents).RoundToInt();
-        Vector3Int maxCorner = (bounds.center + bounds.extents).RoundToInt();
-
-        // Iterate through all positions within the bounds
-        for (int x = minCorner.x; x < maxCorner.x; x += 4)
+        // Get all floor objects within the room
+        Transform[] floorObjects = room.GetComponentsInChildren<Transform>(true);
+        foreach (Transform floorObject in floorObjects)
         {
-            for (int y = minCorner.y; y < maxCorner.y; y += 4)
+            if (floorObject.gameObject.layer == LayerMask.NameToLayer("Floor"))
             {
-                for (int z = minCorner.z; z < maxCorner.z; z += 4)
-                {
-                    Vector3Int currentPosition = new Vector3Int(Mathf.RoundToInt(x) + 2, Mathf.RoundToInt(y) + 2, Mathf.RoundToInt(z) + 2);
-                    Transform foundChild = FindChildByPosition(room.transform, currentPosition);
+                Vector3Int currentPosition = floorObject.position.RoundToInt();
+                Cell newCell = new Cell() { Type = type, Position = currentPosition, Room = room };
 
-                    if (foundChild != null && foundChild.name.Contains("Floor"))
-                    {
-                        Cell newCell = new Cell() { Type = type, Position = currentPosition, Room = room };
-
-                        Cells.Add(newCell);
-                        newBounds.Add(newCell);
-                    }
-                }
+                Cells.Add(newCell);
+                newBounds.Add(newCell);
             }
         }
+
+        if (newBounds.Count() == 0)
+            throw new ArgumentException("Failed to find floor objects.");
 
         // Set the room bounds.
         room.GridBounds = newBounds;
 
         return newBounds;
     }
+
 
     /// <summary>
     /// Add a new <see cref="Bounds"/> to the world grid.
@@ -408,53 +324,5 @@ public class MazeGrid
                 }
             }
         }
-    }
-
-    /// <summary>
-    /// Helper method for <see cref="PathFindSameRoom(Vector3Int, Vector3Int, int)"/> for finding the next cell.
-    /// </summary>
-    /// <param name="currentCell"></param>
-    /// <param name="destinationCell"></param>
-    /// <param name="visited"></param>
-    /// <returns></returns>
-    private Cell FindBestPossibleNextCell(Cell currentCell, Cell destinationCell, HashSet<Vector3Int> visited)
-    {
-        // Grab the neighbors of the current cell.
-        List<Cell> adjacentCells = Neighbors(currentCell);
-
-        // Find the closest unvisited adjacent cell to the destination
-        Cell closestCell = null;
-        int closestDistance = int.MaxValue;
-
-        foreach (Cell cell in adjacentCells)
-        {
-            // Don't allow visited cells, or empty cells.
-            if (visited.Contains(cell.Position) || cell.Type == CellType.None) continue;
-
-            // Check if this tile is farther than our recorded cell.
-            int distance = CalculateDistance(cell.Position, destinationCell.Position);
-            if (distance > closestDistance) continue;
-
-            closestCell = cell;
-            closestDistance = distance;
-        }
-
-        return closestCell;
-    }
-
-    /// <summary>
-    /// Calculate the distance between two <see cref="Vector3Int"/>.
-    /// </summary>
-    /// <param name="C1"></param>
-    /// <param name="C2"></param>
-    /// <returns></returns>
-    private static int CalculateDistance(Vector3Int C1, Vector3Int C2)
-    {
-        // Calculate the absolute difference in x, y, and z coordinates (Manhattan distance)
-        int x = Mathf.Abs(C1.x - C2.x);
-        int y = Mathf.Abs(C1.y - C2.y);
-        int z = Mathf.Abs(C1.z - C2.z);
-
-        return x + y + z;
     }
 }

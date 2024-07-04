@@ -253,6 +253,12 @@ public class RoomFixtureMono : MonoBehaviour
             Debug.LogWarning("Set as trap, but also not?");
             this.Behavior = RoomFixtureBehaviorType.Trap;
         }
+
+        if (this.IsTrap && PropHolder != null)
+        {
+            this.transform.Find("PropHolder").gameObject.Destroy();
+            this.AllowProps = false;
+        }
     }
 
     /// <summary>
@@ -276,6 +282,9 @@ public class RoomFixtureMono : MonoBehaviour
     /// <returns></returns>
     private async Task CreatePropHolderChild()
     {
+        if (!this.SupportsProps)
+            return;
+
         // Check if a child already exists.
         if (PropHolder != null)
         {
@@ -413,7 +422,9 @@ public class RoomFixtureMono : MonoBehaviour
                     SupportsProps = false;
             }
             else
+            {
                 IsTrap = true;
+            }
         }
     }
 
