@@ -13,7 +13,7 @@ using UnityEngine;
 /// - Ensuring correct visual alignment of props and interactive elements.
 /// - Potentially guiding navigation and pathfinding behaviors.
 /// </summary>
-[Serializable]
+[Serializable, Flags]
 public enum SpatialOrientation
 {
     [Tooltip("Nothing. Used as a default option.")]
@@ -29,7 +29,19 @@ public enum SpatialOrientation
     Up = 4,
 
     [Tooltip("Facing in the negative Z direction (down).")]
-    Down = 8
+    Down = 8,
+
+    [Tooltip("Facing diagonally up and right.")]
+    UpRight = Up | Right,
+
+    [Tooltip("Facing diagonally up and left.")]
+    UpLeft = Up | Left,
+
+    [Tooltip("Facing diagonally down and right.")]
+    DownRight = Down | Right,
+
+    [Tooltip("Facing diagonally down and left.")]
+    DownLeft = Down | Left
 }
 
 /// <summary>

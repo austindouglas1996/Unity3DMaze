@@ -106,6 +106,8 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         ChooseRootRoom();
         await GenerateRoomsUntilSatisfied();
 
+        await Task.Delay(500);
+
         this.GenerateFinished = true;
     }
 
@@ -321,7 +323,10 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         // Add it's doors into the registry.
         var doors = room.Doors;
         foreach (GameObject door in doors)
+        {
+            door.name = $"DOOR{doors.Count}";
             this.DoorRegistry.Add(door, room);
+        }
 
         // Add to generated rooms.
         this.Generated.Add(room);

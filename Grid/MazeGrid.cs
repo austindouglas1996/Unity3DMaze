@@ -14,17 +14,11 @@ using static UnityEditor.PlayerSettings;
 public class MazeGrid
 {
     /// <summary>
-    /// Helps so certain functions can access the maze generator instance.
-    /// </summary>
-    private MazeController Maze;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="MazeGrid"/> class.
     /// </summary>
     /// <param name="mazeGenerator"></param>
-    public MazeGrid(MazeController mazeGenerator)
+    public MazeGrid()
     {
-        this.Maze = mazeGenerator;
     }
 
     /// <summary>
@@ -101,6 +95,14 @@ public class MazeGrid
                 return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z];
             case SpatialOrientation.Left:
                 return this[cell.Position.x, cell.Position.y, cell.Position.z + (4 * distance)];
+            case SpatialOrientation.UpRight:
+                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
+            case SpatialOrientation.UpLeft:
+                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
+            case SpatialOrientation.DownRight:
+                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
+            case SpatialOrientation.DownLeft:
+                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
             default:
                 throw new System.NotSupportedException();
         }
@@ -112,14 +114,36 @@ public class MazeGrid
     /// <param name="cell"></param>
     /// <param name="distance"></param>
     /// <returns></returns>
-    public List<Cell> Neighbors(Cell cell, int distance = 1)
+    public List<Cell> DirectNeighbors(Cell cell, int distance = 1)
     {
         List<Cell> neighbors = new List<Cell>();
         neighbors.Add(Neighbor(cell, SpatialOrientation.Up, distance));
         neighbors.Add(Neighbor(cell, SpatialOrientation.Right, distance));
         neighbors.Add(Neighbor(cell, SpatialOrientation.Down, distance));
         neighbors.Add(Neighbor(cell, SpatialOrientation.Left, distance));
+
         return neighbors;
+    }
+
+    /// <summary>
+    /// Returns the up,right,down,and left neighbors of a cell by a certain distance. Distance is multiplication of tile size.
+    /// </summary>
+    /// <param name="cell"></param>
+    /// <param name="distance"></param>
+    /// <returns></returns>
+    public CellDirectionalGroup AllNeighbors(Cell cell, int distance = 1)
+    {
+        List<Cell> neighbors = new List<Cell>();
+        neighbors.Add(Neighbor(cell, SpatialOrientation.Up, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.Right, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.Down, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.Left, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.UpRight, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.UpLeft, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.DownRight, distance));
+        neighbors.Add(Neighbor(cell, SpatialOrientation.DownLeft, distance));
+
+        return new CellDirectionalGroup(neighbors);
     }
 
     /// <summary>
@@ -225,10 +249,21 @@ public class MazeGrid
     }
 
 
+    public Cell Add(Vector3Int pos, CellType type)
+    {
+        Cell newCell = this[pos];
+        newCell.Type = type;
 
+        this.Cells.Add(newCell);
 
+        return newCell;
+    }
 
-
+    public void Remove(Vector3Int pos)
+    {
+        Cell cell = this[pos];
+        this.Cells.Remove(cell);
+    }
 
 
     /// <summary>
@@ -251,7 +286,7 @@ public class MazeGrid
             if (floorObject.gameObject.layer == LayerMask.NameToLayer("Floor"))
             {
                 Vector3Int currentPosition = floorObject.position.RoundToInt();
-                Cell newCell = new Cell() { Type = type, Position = currentPosition, Room = room };
+                Cell newCell = new Cell() { Type = type, Position = currentPosition + new Vector3Int(0, 2, 0), Room = room };
 
                 Cells.Add(newCell);
                 newBounds.Add(newCell);
@@ -266,7 +301,6 @@ public class MazeGrid
 
         return newBounds;
     }
-
 
     /// <summary>
     /// Add a new <see cref="Bounds"/> to the world grid.
@@ -289,8 +323,8 @@ public class MazeGrid
             {
                 for (int z = minCorner.z; z < maxCorner.z; z += 4)
                 {
-                    Vector3Int currentPosition = new Vector3Int(Mathf.RoundToInt(x) + 2, Mathf.RoundToInt(y) + 2, Mathf.RoundToInt(z) + 2);
-                    Cell newCell = new Cell() { Type = type, Position = currentPosition };
+                    Vector3Int currentPosition = new Vector3Int(x, y, z);
+                    Cell newCell = new Cell() { Type = type, Position = currentPosition + new Vector3Int(0,2,0) };
 
                     Cells.Add(newCell);
                     newBounds.Add(newCell);

@@ -51,7 +51,7 @@ public class MazeController : MonoBehaviour
     /// </summary>
     private async void Start()
     {
-        Grid = new MazeGrid(this);
+        Grid = new MazeGrid();
         this.DoorRegistry = this.GetComponent<DoorRegistry>();
         this.Rooms = this.GetComponent<MazeRoomGenerator>();
         this.Hallways = this.GetComponent<MazeHallwayGenerator>();
@@ -64,6 +64,13 @@ public class MazeController : MonoBehaviour
         await Task.Delay(1000);
         await this.Items.Generate();
         await CleanupDoors();
+
+        /*
+        foreach (var cell in Grid.Cells)
+        {
+            Instantiate(debugCube, cell.Position, Quaternion.identity, this.transform);
+        }
+        */
 
         DoorRegistry.Debug();
         GenerateFinished = true;
@@ -121,8 +128,8 @@ public class MazeController : MonoBehaviour
             directNeighborCell.Type = CellType.Door;
 
             // Debug cubes.
-            //Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);
-            //Instantiate(debugCube, directNeighborCell.Position, Quaternion.identity, this.transform);
+            Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);
+            Instantiate(debugCube, directNeighborCell.Position, Quaternion.identity, this.transform);
         }
     }
 }

@@ -1,11 +1,11 @@
-using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Helps define the state of a door.
 /// </summary>
-[Serializable]
+[System.Serializable]
 public enum DoorState
 {
     /// <summary>
@@ -50,6 +50,9 @@ public class DoorMono : MonoBehaviour
     [Tooltip("Related doors, this is literally only for handling double doors to make sure they play nice.")]
     [SerializeField] public List<DoorMono> RelatedDoors = new List<DoorMono>();
 
+    [Tooltip("Is the door locked and unable to be opened.")]
+    [SerializeField] public bool IsLocked = true;
+
     /// <summary>
     /// The current door rotation.
     /// </summary>
@@ -76,6 +79,16 @@ public class DoorMono : MonoBehaviour
     private float InputDelayRemaining = 0;
 
     /// <summary>
+    /// Change the state of the door lock.
+    /// </summary>
+    /// <param name="newState"></param>
+    /// <returns></returns>
+    public void ChangeDoorLockState(bool newState)
+    {
+        this.IsLocked = newState;
+    }
+
+    /// <summary>
     /// Performs the door action whether that is opening or closing.
     /// </summary>
     /// <returns></returns>
@@ -93,6 +106,12 @@ public class DoorMono : MonoBehaviour
 
         if (CurrentState == DoorState.Closed)
         {
+            if (IsLocked)
+            {
+                StartCoroutine(ShakeDoor());
+                return false;
+            }
+
             CurrentState = DoorState.Opening;
         }
         else if (CurrentState == DoorState.Open)
@@ -174,5 +193,29 @@ public class DoorMono : MonoBehaviour
             this.transform.localEulerAngles = new Vector3(this.transform.localEulerAngles.x, newRotation, this.transform.localEulerAngles.z);
 
         CurrentRotation = newRotation;
+    }
+
+    // Coroutine to shake the door
+    private IEnumerator ShakeDoor()
+    {
+        Vector3 originalPosition = transform.position;
+        float duration = 0.5f;  // Duration of the shake
+        float magnitude = 0.03f; // Magnitude of the shake
+
+        float elapsed = 0.0f;
+
+        while (elapsed < duration)
+        {
+            float x = originalPosition.x + Random.Range(-1f, 1f) * magnitude;
+            float y = originalPosition.y + Random.Range(-1f, 1f) * magnitude;
+
+            transform.position = new Vector3(x, y, originalPosition.z);
+
+            elapsed += Time.deltaTime;
+
+            yield return null;
+        }
+
+        transform.position = originalPosition;
     }
 }

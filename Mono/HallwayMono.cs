@@ -19,11 +19,8 @@ public class HallwayMono : RoomMono
     /// Generate the hallway properties like prop information, and wall visiblity.
     /// </summary>
     /// <returns></returns>
-    public async Task Generate(MazeController maze)
+    public async Task Generate(HallwayMap map)
     {
-        if (maze == null)
-            throw new System.ArgumentNullException(nameof(maze));
-
         while (!this.GenerateFinished)
         {
             await Task.Delay(10);
@@ -31,35 +28,13 @@ public class HallwayMono : RoomMono
 
         this.GenerateFinished = false;
 
-        // Simple bool to know what is visible.
-        bool up = true, right = true, down = true, left = true;
-
-        MazeGrid Grid = maze.Grid;
-        Cell Cell = GridBounds[0];
-
-        Cell upC = Grid.Neighbor(Cell, SpatialOrientation.Up);
-        Cell downC = Grid.Neighbor(Cell, SpatialOrientation.Down);
-
-        Cell rightC = Grid.Neighbor(Cell, SpatialOrientation.Right);
-        Cell leftC = Grid.Neighbor(Cell, SpatialOrientation.Left);
-
-        if (upC.Type == CellType.Hallway && downC.Type == CellType.Hallway && rightC.Type == CellType.Hallway && leftC.Type == CellType.Hallway)
-        {
-            up = false;
-            right = false;
-            left = false;
-            down = false;
-        }
-        else
-        {
-            up = await HandleWallVisibility(upC, maze, SpatialOrientation.Up);
-            right = await HandleWallVisibility(rightC, maze, SpatialOrientation.Right);
-            down = await HandleWallVisibility(downC, maze, SpatialOrientation.Down);
-            left = await HandleWallVisibility(leftC, maze, SpatialOrientation.Left);
-        }
+        SetHallwayWallVisible(SpatialOrientation.Up, map.UpV);
+        SetHallwayWallVisible(SpatialOrientation.Right, map.RightV);
+        SetHallwayWallVisible(SpatialOrientation.Left, map.LeftV);
+        SetHallwayWallVisible(SpatialOrientation.Down, map.BottomV);
 
         // Asign the sizes of props allowed depending on some rules.
-        AssignPropSizes(up, right, down, left);
+        AssignPropSizes(map.UpV, map.RightV, map.BottomV, map.LeftV);
 
         await this.GenerateProps();
 
@@ -202,36 +177,6 @@ public class HallwayMono : RoomMono
     }
 
     /// <summary>
-    /// Handle the wall visibility along with other options like destroyable walls.
-    /// </summary>
-    /// <param name="cell"></param>
-    /// <param name="direction"></param>
-    /// <returns></returns>
-    private async Task<bool> HandleWallVisibility(Cell cell, MazeController maze, SpatialOrientation direction)
-    {
-        if (cell.Type == CellType.None && direction != Direction) return true;
-
-        bool value = true;
-
-        // Hide the hallway.
-        value = SetHallwayWallVisible(direction, false);
-
-        // Check if there is a removable wall.
-        if (cell.Type == CellType.Room && cell.Room != null)
-        {
-            List<Transform> neighbors = cell.Room.FindNeighborPieces(cell.Position, RoomFixtureIdentityType.Any, RoomFixtureBehaviorType.HallwayDoor);
-            foreach (Transform t in neighbors)
-            {
-                GameObject newDoor = await cell.Room.TurnWallIntoDoor(t.gameObject, direction, cell.Room);
-                maze.DoorRegistry.Add(newDoor, cell.Room, this);
-                newDoor.name = "CHANGED";
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// Set the prop size of one of the objects.
     /// </summary>
     /// <param name="direction"></param>
@@ -254,14 +199,17 @@ public class HallwayMono : RoomMono
     /// <param name="direction"></param>
     /// <param name="visible"></param>
     /// <exception cref="System.Exception"></exception>
-    private bool SetHallwayWallVisible(SpatialOrientation direction, bool visible)
+    private void SetHallwayWallVisible(SpatialOrientation direction, bool visible)
     {
+        if (visible)
+        {
+            return;
+        }
+
         Transform obj = Get(direction);
         if (obj != null)
         {
             obj.gameObject.Destroy();
         }
-
-        return visible;
     }
 }

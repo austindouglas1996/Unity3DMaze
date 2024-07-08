@@ -1,10 +1,32 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
+
+public class HallwayMap
+{
+    public HallwayMap(Vector3Int pos, bool isRoot)
+    {
+        this.Position = pos;
+        this.IsRoot = isRoot;
+    }
+
+    public Vector3Int Position;
+    public bool IsRoot = false;
+    public bool IsTrap = false;
+
+    public bool LeftV = true;
+    public bool RightV = true;
+    public bool UpV = true;
+    public bool BottomV = true;
+
+    public DoorPair DoorPair = null;
+}
 
 /// <summary>
 /// Extends <see cref="MazeController"/> to generator hallways connecting rooms throughout a maze to help create a more unique
@@ -16,43 +38,13 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     [Tooltip("Basic prefab with 4 ways that can be distributed to create hallways.")]
     [SerializeField] private GameObject HallwayPrefab;
 
-    /// <summary>
-    /// Contains a list of hallway roots that start out on the extra room doors.
-    /// </summary>
-    private List<HallwayMono> HallwayRoots = new List<HallwayMono>();
-
-    /// <summary>
-    /// Contains a list of hallway cells that connect back to the hallway roots. After generation
-    /// this list should be empty, or the cells remaining are not connected to a root.
-    /// </summary>
-    private List<HallwayMono> HallwayCells = new List<HallwayMono>();
-
-    /// <summary>
-    /// Contains a list of <see cref="Vector3Int"/> of already merged cell positions to not try to merge them again.
-    /// </summary>
-    private List<Vector3Int> MergedCellPositions = new List<Vector3Int>();
-
-    /// <summary>
-    /// Maze grid is slow at updating in async functions for some reason. If we keep a list of
-    /// seen positions while generating the maze we reduce the amount of duplicate hallways to ZERO.
-    /// 
-    /// Future me:
-    /// yes I tried many things to not go this route, but I went insane and then came back
-    /// and then found this worked amazingly everytime.
-    /// </summary>
-    List<Vector3Int> Seen = new List<Vector3Int>();
+    [Tooltip("Basic prefab for 3D hallways. God help us all.")]
+    [SerializeField] private GameObject StairwayPrefab;
 
     /// <summary>
     /// Gets the <see cref="Maze"/> instance to use for accessing important properties.
     /// </summary>
     private MazeController Maze;
-
-    /// <summary>
-    /// Tells whether hallways have finished generation to stop
-    /// <see cref="FindPossibleBridges"/> from failing due to <see cref="GenerateHallways"/> from
-    /// throwing a collection was modified exception.
-    /// </summary>
-    private bool hallwayGenerated = false;
 
     /// <summary>
     /// Returns whether <see cref="Generate"/> has been called.
@@ -65,47 +57,23 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     public bool GenerateFinished { get; private set; }
 
     /// <summary>
-    /// Gets a list of generated hallways from <see cref="MazeHallwayGenerator"/> instance.
+    /// A list of generated hallways.
     /// </summary>
-    public List<HallwayMono> Generated
-    {
-        get;
-        private set;
-    }
+    public List<HallwayMono> Generated { get; private set; } = new List<HallwayMono>();
 
     /// <summary>
-    /// Generate the <see cref="HallwayMono"/> instances around the <see cref="MazeController"/> <see cref="RoomMono"/>s
+    /// Tells whether hallways have finished generation to stop
+    /// <see cref="FindPossibleBridges"/> from failing due to <see cref="GenerateHallways"/> from
+    /// throwing a collection was modified exception.
     /// </summary>
-    /// <returns></returns>
-    public async Task Generate()
-    {
-        if (this.GenerateCalled) return;
-        this.GenerateCalled = true;
+    private bool hallwayGenerated = false;
 
-        // Create the roots and cells.
-        this.CreateHallwayRoots();
-        await this.CreateHallwayCells();
-        this.FindPossibleBridges();
-
-        // Make random hallway spots. This keeps the maze a little less boring.
-        await CreateHallwayAlleys();
-
-        // Generate the hallways. The hallways will handle important things like
-        // what walls to display, allowable props. This is important info to have
-        // before we continue and combine cells.
-        await GenerateHallways();
-
-        // Find and merge nearby cells.
-        await FindAdjacentHallwayCells();
-
-        // Combine lists.
-        Generated = HallwayRoots;
-
-        this.GenerateFinished = true;
-    }
+    private MazeGrid MapGrid = new MazeGrid();
+    private List<HallwayMono> HallwayCells = new List<HallwayMono>();
+    private List<HallwayMap> PreMappedCells = new List<HallwayMap>();
 
     /// <summary>
-    /// Called when the <see cref="MazeHallwayGenerator"/> class is initialized.
+    /// Called when the generator is initialized.
     /// </summary>
     private void Start()
     {
@@ -113,646 +81,482 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     }
 
     /// <summary>
-    /// Create the hallway roots by locating available doors in maze rooms.
+    /// Generate hallways around the maze causing for more confusion and fresh experienced compared
+    /// to pre-set rooms.
     /// </summary>
-    private void CreateHallwayRoots()
+    /// <returns></returns>
+    public async Task Generate()
     {
-        foreach (RoomMono room in Maze.Rooms.Generated)
+        if (this.GenerateCalled) return;
+        this.GenerateCalled = true;
+
+        // Map the roots.
+        this.MapRootCells(this.Maze.DoorRegistry.GetAvailable());
+
+        // Map paths between roots.
+        await this.MapPathCells();
+
+        // Find possible gaps between cells to create unique bridges.
+        this.MapPathBridges();
+
+        // Create 'noise' in the maze.
+        this.MapPathAlleys();
+
+        // Create the pathing for each maze cell.
+        // This is like a cleanup.
+        await this.MapPathing();
+        await this.MapPathing();
+
+        // Final touchups before deploying.
+        this.MapDetails();
+
+        // Finally, commit our changes to the Maze.
+        await this.CommitCells();
+
+        this.GenerateFinished = true;
+    }
+
+    /// <summary>
+    /// With a list of available vacant doors in the maze. Create hallway roots
+    /// so we know where we can establish hallway cells. Roots are important because the position of
+    /// each cell is not yet esatblished and stable. A root cell will make it so our cells are always stable.
+    /// </summary>
+    /// <param name="available"></param>
+    /// <exception cref="System.Exception"></exception>
+    private void MapRootCells(List<DoorPair> available)
+    {
+        foreach (DoorPair pair in available)
         {
-            var pairs = Maze.DoorRegistry.GetAvailable(room);
-            foreach (DoorPair pair in pairs)
+            GameObject door = pair.Door;
+
+            if (door.IsDestroyed()) 
+                continue;
+
+            // Piece options to grab direction.
+            SpatialOrientation direction = door.GetComponent<RoomFixtureMono>().Direction;
+
+            // Bounds.
+            Bounds doorA = door.GetComponent<Renderer>().bounds;
+            Bounds cubeBounds = HallwayPrefab.transform.BoundingBox();
+
+            // Position for root.
+            Vector3 position = door.transform.position;
+
+            switch (direction)
             {
-                bool result = CreateHallwayRoot(pair);
+                case SpatialOrientation.Up:
+                    position = new Vector3(doorA.max.x + cubeBounds.extents.x, position.y + cubeBounds.extents.y, doorA.center.z);
+                    break;
+                case SpatialOrientation.Right:
+                    position = new Vector3(doorA.center.x, position.y + cubeBounds.extents.y, doorA.min.z - cubeBounds.extents.z);
+                    break;
+                case SpatialOrientation.Down:
+                    position = new Vector3(doorA.min.x - cubeBounds.extents.x, position.y + cubeBounds.extents.y, doorA.center.z);
+                    break;
+                case SpatialOrientation.Left:
+                    position = new Vector3(doorA.center.x, position.y + cubeBounds.extents.y, (doorA.max.z + cubeBounds.extents.z));
+                    break;
+                default:
+                    throw new System.Exception("Direction: " + direction + " is not supported.");
             }
+
+            HallwayMap newMap = this.CreateMap(position.RoundToInt(), true, pair);
+            if (newMap == null)
+                Debug.LogWarning("Root hallway was not created.");
         }
     }
 
     /// <summary>
-    /// Create the hallway cells by placing cells on the X and Z until reaching the destination.
+    /// Go through each root cell and try to connect them with the others. This creates pathing throughout the maze.
     /// </summary>
-    private async Task CreateHallwayCells()
+    /// <returns></returns>
+    private async Task MapPathCells()
     {
-        foreach (HallwayMono rootA in HallwayRoots)
+        List<HallwayMap> rootCells = PreMappedCells.Where(r => r.IsRoot).ToList();
+
+        int count = rootCells.Count;
+        for (int i = 0; i < count; i++)
         {
-            foreach (HallwayMono rootB in HallwayRoots)
+            for (int j = count - 1; j > i; j--)
             {
-                if (rootA == rootB) continue;
-                CreateHallwayPath(rootA, rootB);
+                if (rootCells[i] == rootCells[j]) continue;
+                ConnectTwoRoots(rootCells[i], rootCells[j]);
             }
         }
 
-        await Task.Delay(500);
-
-        this.hallwayGenerated = true;
+        await Task.Delay(100);
     }
 
-    private async Task CreateHallwayAlleys()
+    /// <summary>
+    /// Connects hallways have a cell gap.
+    /// </summary>
+    private void MapPathBridges()
     {
-        List<HallwayMono> hallways = this.HallwayCells.ToList();
-        hallways.AddRange(this.HallwayRoots);
-        foreach (var cell in hallways)
+        // TODO:
+    }
+
+    /// <summary>
+    /// Creates random pathways that don't connect to a room.
+    /// </summary>
+    private void MapPathAlleys()
+    {
+        foreach (var cell in this.PreMappedCells.ToList())
         {
-            // 20% chance to spawn an alley.
-            if (Random.Range(0, 100) > 20) continue;
+            // 40% chance to spawn an alley.
+            if (Random.Range(0, 100) > 40) continue;
 
             // How many alleys should we spawn?
-            int distance = Random.Range(2, 5);
-
-            Cell hallway = cell.GridBounds[0];
+            int distance = Random.Range(3, 11);
 
             for (int i = 0; i < distance; i++)
             {
                 // Grab neighbors that are empty. Continue is there is none.
-                List<Cell> neighbors = Maze.Grid.Neighbors(hallway).Where(r => r.Type == CellType.None).ToList();
+                List<Cell> neighbors = GetBestNeighbors(cell.Position,1).Where(r => r.Type == CellType.None).ToList();
                 if (neighbors.Count() == 0) continue;
 
                 Cell chosenCell = neighbors.Random();
 
-                GameObject newHall = InstantiateHallway(chosenCell.Position + new Vector3Int(0, 2, 0), quaternion.identity, this.transform, true);
-                if (newHall == null) continue;
-
-                HallwayMono hall = newHall.GetComponent<HallwayMono>();
-                hallway = hall.GridBounds[0];
-
-                this.HallwayCells.Add(hall);
+                this.CreateMap(chosenCell.Position, false);
             }
         }
     }
 
     /// <summary>
-    /// Find possible 'bridge' connections where two hallways are two spots away.
-    /// See: https://i.gyazo.com/92198e40ce001212525f9d83565f3b18.png
-    /// <remarks>After testing I am not seeing the results I want, but sometimes it does make some cool
-    /// designs but most of the time it just leaves me sad in for whatever reason not properly connecting
-    /// roots. Might be something to come back to.</remarks>
+    /// Determines map walls and if they should be open, closed, or destroyed.
     /// </summary>
-    private void FindPossibleBridges()
+    private async Task MapPathing()
     {
-        List<Cell> connectedBridges = new List<Cell>();
-
-        // Connect all cells.
-        List<HallwayMono> combined = new List<HallwayMono>(HallwayRoots);
-        List<HallwayMono> connected = new List<HallwayMono>();
-        combined.AddRange(HallwayCells);
-
-        foreach (HallwayMono hallway in combined)
+        foreach (var map in PreMappedCells.ToList())
         {
-            if (connected.Contains(hallway))
+            CellDirectionalGroup neighbors = GetBestNeighborsAll(map.Position, 1);
+
+            if (neighbors.Up.Type != CellType.None 
+                && neighbors.Left.Type != CellType.None
+                && neighbors.Right.Type != CellType.None 
+                && neighbors.Down.Type != CellType.None)
+            {
+                if (neighbors.UpRight.Type != CellType.None
+                    && neighbors.UpLeft.Type != CellType.None
+                    && neighbors.DownRight.Type != CellType.None
+                    && neighbors.DownLeft.Type != CellType.None)
+                {
+                    // Delete this one.
+                    this.RemoveMap(map);
+                    continue;
+                }
+
+                if (neighbors.UpRight.Type != CellType.None
+                    && neighbors.UpLeft.Type != CellType.None
+                    && neighbors.DownRight.Type == CellType.None
+                    && neighbors.DownLeft.Type == CellType.None)
+                {
+                    map.LeftV = true;
+                    map.BottomV = true;
+                    map.UpV = false;
+                    map.RightV = false;
+                }
+
+            }
+
+            if (neighbors.Up.Type != CellType.None)
+                map.UpV = false;
+
+            if (neighbors.Left.Type != CellType.None)
+                map.LeftV = false;
+
+            if (neighbors.Right.Type != CellType.None)
+                map.RightV = false;
+
+            if (neighbors.Down.Type != CellType.None)
+                map.BottomV = false;
+        }
+    }
+
+    /// <summary>
+    /// Create the small details of the maze.
+    /// </summary>
+    private void MapDetails()
+    {
+        this.MapDetailsTraps();
+    }
+
+    /// <summary>
+    /// Distribute traps throughout the hallways, because we're E V I L >:D
+    /// </summary>
+    private void MapDetailsTraps()
+    {
+        // How many hallway cells should contain a trap?
+        int remainingTraps = (int)(this.PreMappedCells.Count * 0.4);
+        int remainingFailures = remainingTraps * 2;
+
+        while (remainingTraps > 0 && remainingFailures > 0)
+        {
+            HallwayMap map = this.PreMappedCells.Random();
+
+            // Check if we already set this one as a trap.
+            if (map.IsTrap)
+            {
+                remainingFailures--;
                 continue;
-
-            // Hallways at this point only have one cell.
-            Cell hCell = hallway.GridBounds[0];
-
-            HallwayMono A = hCell.Room.GetComponent<HallwayMono>();
-
-            // Find neighbor cells.
-            List<Cell> bridgeNeighbors = GetNeighborHallwayBridgeCandidates(hCell);
-
-            foreach (Cell bridgeCell in bridgeNeighbors)
-            {
-                // Make sure these two do not have an existing connection.
-                if (Maze.DoorRegistry.GetConnections(hCell.Room, bridgeCell.Room).Count != 0) 
-                    continue;
-
-                // Make sure not a child of the same room.
-                if (hCell.Room == bridgeCell.Room) continue;
-
-                // Create a bridge to connect them.
-                // At this point we know both rooms are <see cref="Hallway"/> instances.
-                HallwayMono B = bridgeCell.Room.GetComponent<HallwayMono>();
-
-                // This cell is already known.
-                if (connected.Contains(B))
-                    continue;
-
-                // Add this connection.
-                connected.Add(B);
-
-                HallwayMono newCell = CreateHallwayCell(A, B);
-                if (newCell != null) break;
             }
 
-            connected.Add(A);
+            map.IsTrap = true;
+            remainingTraps--;
         }
     }
 
     /// <summary>
-    /// Loop through hallway roots and connect each root to one another. Each root requires at least one connection.
-    /// Once complete we will allow the hallways to handle thier own logic on what walls and props to do.
+    /// Empty the <see cref="PreMappedCells"/> list and create <see cref="HallwayMono"/> instances.
     /// </summary>
-    private async Task GenerateHallways()
+    private async Task CommitCells()
     {
-        foreach (HallwayMono root in HallwayRoots)
-            await root.Generate(this.Maze);
-
-        foreach (HallwayMono cell in HallwayCells)
-            await cell.Generate(this.Maze);
-    }
-
-    /// <summary>
-    /// Combine hallways into one "room". This will help decrease processing needs instead of having all hallways
-    /// as one room we will now have one dynamic room.
-    /// </summary>
-    /// <returns></returns>
-    private async Task FindAdjacentHallwayCells()
-    {
-        List<Cell> rootCells = Maze.Grid.Cells.Where(r => r.Type == CellType.Hallway).ToList();
-
-        foreach (Cell root in rootCells)
+        // Take our map and create into objects.
+        foreach (var map in this.PreMappedCells)
         {
-            MergedCellPositions.Add(root.Position);
+            GameObject inst = Instantiate(HallwayPrefab, map.Position, quaternion.identity, this.transform);
+            HallwayMono newHall = inst.GetComponent<HallwayMono>();
 
-            foreach (Cell neighbor in GetNeighborHallwayCells(root, CellType.Hallway))
+            // Root cells are connected to a door.
+            if (map.IsRoot)
             {
-                await MergeHallwayCells(root, neighbor);
+                // Set a connection with the door.
+                this.Maze.DoorRegistry.SetConnection(map.DoorPair.Door, newHall);
             }
+
+            // Generate.
+            await newHall.Generate(map);
+
+            // Add to generated for later processing.
+            Generated.Add(newHall);
+        }
+
+        // Take our temporary grid and put into the maze grid.
+        foreach (var cell in MapGrid.Cells)
+        {
+            this.Maze.Grid.Add(cell.Position, CellType.Hallway);
         }
     }
 
     /// <summary>
-    /// Recursively connects hallway cells to a root cell, forming a cohesive structure within a generated environment.
-    /// </summary>
-    /// <param name="root">The primary hallway cell to which other hallway cells will be connected.</param>
-    /// <param name="neighbor">The adjacent hallway cell to be considered for connection.</param>
-    /// <returns>An awaitable task that completes when the connection process is finished.</returns>
-    private async Task MergeHallwayCells(Cell root, Cell neighbor)
-    {
-        if (!MergedCellPositions.Contains(neighbor.Position))
-        {
-            MergeHallwayRooms(root.Room, neighbor.Room);
-            MergedCellPositions.Add(neighbor.Position);
-        }
-
-        List<Cell> neighbors = GetNeighborHallwayCells(neighbor, CellType.Hallway);
-        foreach (Cell cell in neighbors)
-        {
-            if (cell == root) continue;
-            if (MergedCellPositions.Contains(cell.Position)) continue;
-
-            await MergeHallwayCells(root, cell);
-        }
-    }
-
-    /// <summary>
-    /// Merges the children of two Room GameObjects, transferring them from one to the other and destroying the original parent.
-    /// </summary>
-    /// <remarks>
-    /// This method is primarily used to combine Room cells.
-    /// </remarks>
-    /// <param name="root">The Room GameObject that will become the new parent for the children of B.</param>
-    /// <param name="B">The Room GameObject whose children will be transferred to the root GameObject.</param>
-    private void MergeHallwayRooms(RoomMono root, RoomMono B, bool destroyOnMerge = true)
-    {
-        List<Transform> childrenToReparent = new List<Transform>();
-
-        // Take all children objects. Unity does not play nice
-        // if we don't load it into a list first.
-        foreach (Transform piece in B.GetComponentInChildren<Transform>(true))
-        {
-            if (piece == B.transform) continue;
-            childrenToReparent.Add(piece);
-        }
-
-        // Now we can take it's children.
-        foreach (Transform piece in childrenToReparent)
-        {
-            piece.parent = root.transform;
-        }
-
-        // Does this cell have any doors?
-        foreach (var pair in Maze.DoorRegistry.Get(B))
-        {
-            Maze.DoorRegistry.SetConnection(pair.Door, root);
-        }
-
-        // Does this cell have any children connections?
-        foreach (var pair in Maze.DoorRegistry.Get(B))
-        {
-            Maze.DoorRegistry.SetConnection(pair.Door, root);
-        }
-
-        // Change grid cells to use the root cell.
-        foreach (Cell cells in B.GridBounds)
-        {
-            cells.Room = root;
-        }
-
-        // Rename
-        B.gameObject.name = "DELETED";
-
-        // Destroy.
-        if (destroyOnMerge)
-            Destroy(B.gameObject);
-    }
-
-    /// <summary>
-    /// Generate the <see cref="HallwayMono"/> root instances from available <see cref="RoomMono"/> <see cref="DoorPair"/> instances.
-    /// </summary>
-    /// <param name="pair"></param>
-    /// <returns></returns>
-    /// <exception cref="System.Exception"></exception>
-    private bool CreateHallwayRoot(DoorPair pair)
-    {
-        GameObject door = pair.Door;
-
-        // Piece options to grab direction.
-        SpatialOrientation direction = door.GetComponent<RoomFixtureMono>().Direction;
-
-        // Bounds.
-        Bounds doorA = door.GetComponent<Renderer>().bounds;
-        Bounds cubeBounds = HallwayPrefab.transform.BoundingBox();
-
-        // Position for root.
-        Vector3 position = door.transform.position;
-
-        switch (direction)
-        {
-            case SpatialOrientation.Up:
-                position = new Vector3(doorA.max.x + cubeBounds.extents.x, position.y + cubeBounds.extents.y, doorA.center.z);
-                break;
-            case SpatialOrientation.Right:
-                position = new Vector3(doorA.center.x, position.y + cubeBounds.extents.y, doorA.min.z - cubeBounds.extents.z);
-                break;
-            case SpatialOrientation.Down:
-                position = new Vector3(doorA.min.x - cubeBounds.extents.x, position.y + cubeBounds.extents.y, doorA.center.z);
-                break;
-            case SpatialOrientation.Left:
-                position = new Vector3(doorA.center.x, position.y + cubeBounds.extents.y, (doorA.max.z + cubeBounds.extents.z));
-                break;
-            default:
-                throw new System.Exception("Direction: " + direction + " is not supported.");
-        }
-
-        GameObject newRoot = InstantiateHallway(position.RoundToInt(), quaternion.identity, this.transform);
-
-        // Was there a collision?
-        if (newRoot == null)
-            return false;
-
-        // Add to hallways and register the new door.
-        HallwayMono hallway = newRoot.GetComponent<HallwayMono>();
-        hallway.Direction = direction.Reverse();
-        HallwayRoots.Add(hallway);
-        Maze.DoorRegistry.SetConnection(pair.Door, hallway);
-
-        return true;
-    }
-
-    /// <summary>
-    /// Generate a hallway path from two different <see cref="HallwayMono"/> instances.
+    /// Connect two root hallways to one another. Roots are used as the foundation of a 
+    /// hallway. We know the doors are open and safe. We're now wanting to make the path to them.
     /// </summary>
     /// <param name="A"></param>
     /// <param name="B"></param>
-    private void CreateHallwayPath(HallwayMono A, HallwayMono B, bool ignoreCollision = false)
+    private void ConnectTwoRoots(HallwayMap A, HallwayMap B)
     {
-        // Bounds of both roots.
-        Bounds AB = A.transform.BoundingBox();
-        Bounds BB = B.transform.BoundingBox();
-
         // Position of each root.
-        Vector3 APOS = A.transform.position;
-        Vector3 BPOS = B.transform.position;
+        Vector3Int APOS = A.Position;
+        Vector3Int BPOS = B.Position;
 
         // Don't allow hallway paths that are outside a small range.
         if (Vector3.Distance(APOS, BPOS) > 30)
             return;
 
-        // Only connect roots on same X/Z
+        // Only connect hallway roots on same X/Z
+        // Let the record show we started here on 7/2.
+        // This If had a return in case we forget from the PTSD.
+        // If I'm not back 7/12 send help.
+        //
+        // 7/7 bonjour, SOS.
         if (APOS.y != BPOS.y)
             return;
 
         // Get (possibly) best direction.
-        Vector3 direction = GetBestDirection(APOS.RoundToInt(), BPOS.RoundToInt());
-        
+        Vector3 direction = DetermineDirectionBetweenPoints(APOS, BPOS);
+
         if (direction.x == 1)
         {
-            Vector3 currentPosition = CreateHallwayCellX(APOS, A, B, ignoreCollision);
-            CreateHallwayCellZ(currentPosition, A, B);
+            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position);
+            CreatePathBetweenCellsZ(currentPosition, A.Position, B.Position);
         }
         else
         {
-            Vector3 currentPosition = CreateHallwayCellZ(APOS, A, B, ignoreCollision);
-            CreateHallwayCellX(currentPosition, A, B);
+            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position);
+            CreatePathBetweenCellsX(currentPosition, A.Position, B.Position);
         }
     }
 
     /// <summary>
-    /// Determine what is mostly the best possible place to start with creating the hallway. X or Z?
+    /// Create cell instances along a path from one direction to another along the Z axis.
     /// </summary>
-    /// <param name="APOS"></param>
-    /// <param name="BPOS"></param>
-    /// <returns>A <see cref="Vector3"/> with a 1 in the place of the variable you should start with. Default is Z.</returns>
-    private Vector3 GetBestDirection(Vector3Int APOS, Vector3Int BPOS)
-    {
-        Vector3Int TempA = APOS;
-        Vector3Int TempB = APOS;
-
-        // Determine if we need to go RIGHT or LEFT.
-        if (APOS.z - BPOS.z < 0)
-            TempA.z += 4;
-        else
-            TempA.z -= 4;
-
-        // Determine if we need to go UP or DOWN.
-        if (APOS.x - BPOS.x < 0)
-            TempB.x += 4;
-        else
-            TempB.x -= 4;
-
-        CellType X = Maze.Grid[TempA].Type;
-        CellType Z = Maze.Grid[TempB].Type;
-
-        if (X == CellType.None)
-            return new Vector3(1, 0, 0);
-
-        return new Vector3(0, 0, 1);
-    }
-
-    /// <summary>
-    /// Generate hallway cells on the X-axis.
-    /// </summary>
-    /// <param name="currentPosition"></param>
+    /// <param name="curr"></param>
     /// <param name="A"></param>
     /// <param name="B"></param>
     /// <returns></returns>
-    private Vector3 CreateHallwayCellX(Vector3 currentPosition, HallwayMono A, HallwayMono B, bool ignoreCollision = false)
+    private Vector3Int CreatePathBetweenCellsX(Vector3Int curr, Vector3Int A, Vector3Int B)
     {
-        // Bounds of both roots.
-        Bounds AB = A.transform.BoundingBox();
-        Bounds BB = B.transform.BoundingBox();
-
-        // Position of each root.
-        Vector3 APOS = currentPosition;
-        Vector3 BPOS = B.transform.position;
-
         // Determine if we're going up or down.
-        bool positive = DetermineIfPositiveOrNegative(APOS.x, BPOS.x);
+        bool positive = DetermineIfPositiveOrNegative(curr.x, B.x);
 
-        while (positive && APOS.x - BPOS.x < 0 || !positive && APOS.x - BPOS.x > 0)
+        while (positive && curr.x - B.x < 0 || !positive && curr.x - B.x > 0)
         {
-            // Determine if we need to go RIGHT or LEFT.
             if (positive)
-                APOS.x += 4;
+                curr.x += 4;
             else
-                APOS.x -= 4;
+                curr.x -= 4;
 
-            // Default value for a cell is to return CellType.None. This just means the grid does not know about this value.
-            Cell foundCell = Maze.Grid[APOS.RoundToInt()];
-
-            // Add a new hallway?
-            if (foundCell.Type != CellType.None)
-            {
-                continue;
-            }
-
-            if (ignoreCollision)
-            {
-                GameObject newHallwayCell = InstantiateHallway(APOS.RoundToInt(), quaternion.identity, this.transform, false);
-
-                if (newHallwayCell != null)
-                    HallwayCells.Add(newHallwayCell.GetComponent<HallwayMono>());
-            }
-            else
-            {
-                Cell up = Maze.Grid.Neighbor(foundCell, SpatialOrientation.Up);
-                Cell down = Maze.Grid.Neighbor(foundCell, SpatialOrientation.Down);
-                if (up.Type != CellType.Hallway || down.Type != CellType.Hallway)
-                {
-                    GameObject newHallwayCell = InstantiateHallway(APOS.RoundToInt(), quaternion.identity, this.transform);
-
-                    if (newHallwayCell != null)
-                        HallwayCells.Add(newHallwayCell.GetComponent<HallwayMono>());
-                }
-            }
+            this.CreateMap(curr, false);
         }
 
-        return APOS;
+        return curr;
     }
 
     /// <summary>
-    /// Create a new singular hallway cell. Helper method for <see cref="FindPossibleBridges"/> function.
+    /// Create cell instances along a path from one direction to another along the Z axis.
     /// </summary>
+    /// <param name="curr"></param>
     /// <param name="A"></param>
     /// <param name="B"></param>
     /// <returns></returns>
-    private HallwayMono CreateHallwayCell(HallwayMono A, HallwayMono B)
+    private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B)
     {
-        // Position of each root.
-        Vector3 APOS = A.transform.position;
-        Vector3 BPOS = B.transform.position;
-
-        // Determine if we're going up or down or left & right.
-        bool positiveX = DetermineIfPositiveOrNegative(APOS.x, BPOS.x);
-        bool positiveZ = DetermineIfPositiveOrNegative(APOS.z, BPOS.z);
-
-        if (APOS.x != BPOS.x)
-        {
-            if (positiveX)
-                APOS.x += 4;
-            else
-                APOS.x -= 4;
-        }
-
-        if (APOS.z != BPOS.z)
-        {
-            if (positiveZ)
-                APOS.z += 4;
-            else
-                APOS.z -= 4;
-        }
-
-        if (Seen.Contains(APOS.RoundToInt())) return null;
-
-        GameObject newHallwayCell = InstantiateHallway(APOS.RoundToInt(), quaternion.identity, this.transform, false);
-        HallwayMono newHallway = newHallwayCell.GetComponent<HallwayMono>();
-
-        if (newHallwayCell != null)
-            HallwayCells.Add(newHallway);
-
-        return newHallway;
-    }
-
-    /// <summary>
-    /// Generate hallway cells on the Z-axis.
-    /// </summary>
-    /// <param name="currentPosition"></param>
-    /// <param name="A"></param>
-    /// <param name="B"></param>
-    /// <returns></returns>
-    private Vector3 CreateHallwayCellZ(Vector3 currentPosition, HallwayMono A, HallwayMono B, bool ignoreCollision = false)
-    {
-        // Bounds of both roots.
-        Bounds AB = A.transform.BoundingBox();
-        Bounds BB = B.transform.BoundingBox();
-
-        // Position of each root.
-        Vector3 APOS = currentPosition;
-        Vector3 BPOS = B.transform.position;
-
         // Determine if we're going up or down.
-        bool positive = DetermineIfPositiveOrNegative(APOS.z, BPOS.z);
+        bool positive = DetermineIfPositiveOrNegative(curr.z, B.z);
 
-        while (positive && APOS.z - BPOS.z < 0 || !positive && APOS.z - BPOS.z > 0)
+        while (positive && curr.z - B.z < 0 || !positive && curr.z - B.z > 0)
         {
-            // Determine if we need to go RIGHT or LEFT.
             if (positive)
-                APOS.z += 4;
+                curr.z += 4;
             else
-                APOS.z -= 4;
+                curr.z -= 4;
 
-            // Default value for a cell is to return CellType.None. This just means the grid does not know about this value.
-            Cell foundCell = Maze.Grid[APOS.RoundToInt()];
-
-            // Add a new hallway?
-            if (foundCell.Type != CellType.None)
-            {
-                continue;
-            }
-
-            if (ignoreCollision)
-            {
-                GameObject newHallwayCell = InstantiateHallway(APOS.RoundToInt(), quaternion.identity, this.transform, false);
-
-                if (newHallwayCell != null)
-                    HallwayCells.Add(newHallwayCell.GetComponent<HallwayMono>());
-            }
-            else
-            {
-                // For the Z we do things a bit differently. To reduce clutter, we check if there is already
-                // a hallway nearby so we can try to avoid the two lane hallways when possible. When I tried
-                // doing this for the X too, it broke in intersections and was quite weird. We may be able to 
-                // do the same for X.
-                Cell left = Maze.Grid.Neighbor(foundCell, SpatialOrientation.Left);
-                Cell right = Maze.Grid.Neighbor(foundCell, SpatialOrientation.Right);
-                if (left.Type != CellType.Hallway || right.Type != CellType.Hallway)
-                {
-                    GameObject newHallwayCell = InstantiateHallway(APOS.RoundToInt(), quaternion.identity, this.transform);
-
-                    if (newHallwayCell != null)
-                        HallwayCells.Add(newHallwayCell.GetComponent<HallwayMono>());
-                }
-            }
+            this.CreateMap(curr, false);
         }
 
-        return APOS;
+        return curr;
     }
 
     /// <summary>
-    /// Initialize a new <see cref="HallwayMono"/> object with collision checking, and grid additions.
+    /// Retrieves a list of bridge candidates. Two hallways that are
+    /// two cells from one another with a gap.
     /// </summary>
-    /// <param name="position"></param>
-    /// <param name="rotation"></param>
-    /// <param name="parent"></param>
-    /// <param name="checkForCollision"></param>
+    /// <param name="pos"></param>
     /// <returns></returns>
-    private GameObject InstantiateHallway(Vector3Int position, Quaternion rotation, Transform parent, bool checkForCollision = true)
-    {
-        // Have we seen this position? If not, add it.
-        if (Seen.Contains(position)) return null;
-        Seen.Add(position);
-
-        GameObject newHallway = Instantiate(HallwayPrefab, position, rotation, parent); 
-        Bounds newRootBounds = newHallway.transform.BoundingBox();
-
-        if (checkForCollision)
-        {
-            bool roomCollision = CheckForRoomCollision(newRootBounds, position);
-            bool rootCollision = CheckForHallwayRootCollision(newHallway.GetComponent<HallwayMono>());
-            if (roomCollision || rootCollision)
-            {
-                Destroy(newHallway);
-                return null;
-            }
-        }
-
-        // Grab the hallway.
-        HallwayMono hallwayProp = newHallway.GetComponent<HallwayMono>();
-
-        // Add bounds to grid.
-        Maze.Grid.AddBounds(hallwayProp, CellType.Hallway);
-
-        return newHallway;
-    }
-
-    /// <summary>
-    /// Check if a <see cref="Bounds"/> collides with a <see cref="RoomMono"/> in the <see cref="Maze"/>
-    /// </summary>
-    /// <param name="bounds"></param>
-    /// <returns></returns>
-    private bool CheckForRoomCollision(Bounds bounds, Vector3 position)
-    {
-        foreach (RoomMono room in Maze.Rooms.Generated)
-        {
-            if (RoomMono.CheckForIntersection(room, bounds, position) || RoomMono.CheckForContains(room, bounds, position))
-                return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Check if a <see cref="Bounds"/> collides with a <see cref="HallwayMono"/> root.
-    /// </summary>
-    /// <param name="bounds"></param>
-    /// <returns></returns>
-    private bool CheckForHallwayRootCollision(HallwayMono initialHallway)
-    {
-        foreach (HallwayMono root in HallwayRoots)
-        {
-            if (root == initialHallway) continue;
-
-            Bounds hallwayBounds = root.transform.BoundingBox();
-
-            if (RoomMono.CheckForIntersection(initialHallway.transform.BoundingBox(), hallwayBounds, initialHallway.transform.position, root.transform.position))
-                return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Get a list of neighbor <see cref="HallwayMono"/> cells.
-    /// </summary>
-    /// <param name="cell"></param>
-    /// <returns></returns>
-    private List<Cell> GetNeighborHallwayCells(Cell cell, CellType type, int distance = 1)
+    private List<Cell> GetNeighborBridgeCandidates(Vector3Int pos)
     {
         List<Cell> neighbors = new List<Cell>();
 
-        Cell up = Maze.Grid.Neighbor(cell, SpatialOrientation.Up, distance);
-        Cell right = Maze.Grid.Neighbor(cell, SpatialOrientation.Right, distance);
-        Cell down = Maze.Grid.Neighbor(cell, SpatialOrientation.Down, distance);
-        Cell left = Maze.Grid.Neighbor(cell, SpatialOrientation.Left, distance);
-
-        if (up.Type == type)
-            neighbors.Add(up);
-        if (right.Type == type)
-            neighbors.Add(right);
-        if (down.Type == type)
-            neighbors.Add(down);
-        if (left.Type == type)
-            neighbors.Add(left);
-
-        return neighbors;
-    }
-
-    /// <summary>
-    /// Gets a list of neighbor <see cref="HallwayMono"/> cells that are 2 cells away with the first being an empty cell.
-    /// </summary>
-    /// <param name="cell"></param>
-    /// <returns></returns>
-    private List<Cell> GetNeighborHallwayBridgeCandidates(Cell cell)
-    {
-        List<Cell> neighbors = new List<Cell>();
-
-        foreach (Cell ncell in GetNeighborHallwayCells(cell, CellType.None, 1))
+        foreach (Cell ncell in GetNeighborHallways(this.MapGrid, pos, 1))
         {
-            foreach (Cell ncell1 in GetNeighborHallwayCells(ncell, CellType.Hallway, 1))
+            foreach (Cell ncell1 in GetNeighborHallways(this.MapGrid, pos, 1))
             {
                 neighbors.Add(ncell1);
             }
         }
+
         return neighbors;
+    }
+
+    /// <summary>
+    /// Look through the <see cref="MapGrid"/> and <see cref="Maze.Grid"/> to find the most suitable
+    /// neighbor. This is needed when deteriming for hallway cells if they are next to a room.
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <param name="distance"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    private List<Cell> GetBestNeighbors(Vector3Int pos, int distance)
+    {
+        List<Cell> localNeighbors = this.MapGrid.DirectNeighbors(this.MapGrid[pos], distance);
+        List<Cell> globalNeighbors = this.Maze.Grid.DirectNeighbors(this.Maze.Grid[pos], distance);
+        List<Cell> cells = new List<Cell>();
+
+        if (localNeighbors.Count != globalNeighbors.Count)
+            throw new ArgumentException("Count must be the same");
+
+        for (int i = 0; i < localNeighbors.Count; i++)
+        {
+            cells.Add(globalNeighbors[i].Type == CellType.None ? localNeighbors[i] : globalNeighbors[i]);
+        }
+
+        return cells;
+    }
+
+    /// <summary>
+    /// Look through the <see cref="MapGrid"/> and <see cref="Maze.Grid"/> to find the most suitable
+    /// neighbor. This is needed when deteriming for hallway cells if they are next to a room.
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <param name="distance"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    private CellDirectionalGroup GetBestNeighborsAll(Vector3Int pos, int distance)
+    {
+        var localNeighbors = this.MapGrid.AllNeighbors(this.MapGrid[pos], distance);
+        var globalNeighbors = this.Maze.Grid.AllNeighbors(this.Maze.Grid[pos], distance);
+        List<Cell> cells = new List<Cell>();
+
+        for (int i = 0; i < localNeighbors.Group.Count; i++)
+        {
+            cells.Add(globalNeighbors.Group[i].Type == CellType.None ? localNeighbors.Group[i] : globalNeighbors.Group[i]);
+        }
+
+        return new CellDirectionalGroup(cells);
+    }
+
+    /// <summary>
+    /// Retrieves a list of neighbor cells that are also hallways.
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="pos"></param>
+    /// <param name="distance"></param>
+    /// <returns></returns>
+    private List<Cell> GetNeighborHallways(MazeGrid grid, Vector3Int pos, int distance = 1)
+    {
+        List<Cell> neighbors = grid.DirectNeighbors(grid[pos], distance);
+        return neighbors.Where(r => r.Type == CellType.Hallway).ToList();
+    }
+
+    /// <summary>
+    /// Attemps to create a new <see cref="HallwayMap"/> instance. Performs several checks
+    /// to see if the cell is taken in the <see cref="Maze.Grid"/>, or <see cref="MapGrid"/>.
+    /// </summary>
+    /// <param name="pos">Position to make the map</param>
+    /// <param name="isRoot"></param>
+    /// <returns></returns>
+    private HallwayMap CreateMap(Vector3Int pos, bool isRoot, DoorPair pair = null)
+    {
+        if (!this.CheckIsValid(pos))
+        {
+            return null;
+        }
+
+        HallwayMap newMap = new HallwayMap(pos, isRoot);
+        newMap.DoorPair = pair;
+
+        // Set the value.
+        this.MapGrid.Add(pos, CellType.Hallway);
+        this.PreMappedCells.Add(newMap);
+
+        return newMap;
+    }
+
+    private bool RemoveMap(HallwayMap map)
+    {
+        this.MapGrid.Remove(map.Position);
+        this.PreMappedCells.Remove(map);
+        return true;
+    }
+
+    /// <summary>
+    /// Check if a given tile position is valid for a new hallway.
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    private bool CheckIsValid(Vector3Int position)
+    {
+        var mazeCell = Maze.Grid[position];
+        var localCell = this.MapGrid[position];
+        var localMap = this.PreMappedCells.Where(r => r.Position == position).ToList();
+
+        // Maze already has a cell here.
+        if (mazeCell.Type != CellType.None 
+            || localCell.Type != CellType.None
+            || localMap.Count != 0)
+            return false;
+
+        return true;
     }
 
     /// <summary>
@@ -767,12 +571,25 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     }
 
     /// <summary>
-    /// Confirm a tile is empty.
+    /// Determine the best direction to move from one position to another. Helps with
+    /// navigating cell positions from left to right, or up and down.
     /// </summary>
-    /// <param name="tile"></param>
+    /// <param name="APOS"></param>
+    /// <param name="BPOS"></param>
     /// <returns></returns>
-    private bool ConfirmEmptyTile(Vector3Int tile)
+    private Vector3 DetermineDirectionBetweenPoints(Vector3Int APOS, Vector3Int BPOS)
     {
-        return this.Maze.Grid[tile].Type == CellType.None;
+        // Create temporary positions for checking the direction.
+        Vector3Int tempA = new Vector3Int(APOS.x, APOS.y, APOS.z + (APOS.z < BPOS.z ? 4 : -4));
+        Vector3Int tempB = new Vector3Int(APOS.x + (APOS.x < BPOS.x ? 4 : -4), APOS.y, APOS.z);
+
+        // Check if moving in the Z direction is possible.
+        if (!CheckIsValid(tempA))
+        {
+            return new Vector3(1, 0, 0); // Move right/left
+        }
+
+        // If not, move in the X direction.
+        return new Vector3(0, 0, 1); // Move up/down
     }
 }

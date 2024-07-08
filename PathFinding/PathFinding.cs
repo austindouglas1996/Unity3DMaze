@@ -126,7 +126,7 @@ public class PathFinding : MonoBehaviour
         if (curr.Position == dest.Position)
             throw new ArgumentException("Start and end are the same position.");
 
-        List<Cell> neighbors = controller.Grid.Neighbors(curr);
+        List<Cell> neighbors = controller.Grid.DirectNeighbors(curr);
 
         Cell closestCell = null;
         int closestDistance = Int32.MaxValue;
@@ -339,7 +339,7 @@ public class PathFinding : MonoBehaviour
             }
 
             // Get neighbors using the Neighbors function
-            List<Cell> neighbors = controller.Grid.Neighbors(current, 1);
+            List<Cell> neighbors = controller.Grid.DirectNeighbors(current, 1);
             foreach (var neighbor in neighbors)
             {
                 if (neighbor != null && parent.ContainsKey(neighbor) && parent[neighbor] == null)
