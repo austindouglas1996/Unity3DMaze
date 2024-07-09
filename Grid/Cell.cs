@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Provides information about a cell.
 /// </summary>
+[System.Serializable]
 public class Cell : ICell
 {
     public RoomMono Room { get; set; }

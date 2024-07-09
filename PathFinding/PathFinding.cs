@@ -134,7 +134,9 @@ public class PathFinding : MonoBehaviour
         foreach (Cell next in neighbors)
         {
             int distance = CalculateDistance(next.Position, dest.Position); 
-            bool BothAreDoors = (next.Type == CellType.Door && curr.Type == CellType.Door);
+
+            bool BothAreHallways = (next.Type == CellType.Hallway && curr.Type == CellType.Hallway);
+            bool BothAreDoors = (next.Type == CellType.Door && curr.Type == CellType.Door) || BothAreHallways;
 
             if (visitedCells.Contains(next.Position))
                 continue;

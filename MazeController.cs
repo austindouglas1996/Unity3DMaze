@@ -14,6 +14,7 @@ public class MazeController : MonoBehaviour
     public GameObject debugCube3;
     public GameObject debugCube4;
     public GameObject debugCube5;
+    public GameObject debugCubePath;
 
     /// <summary>
     /// Has the maze finished generating?
@@ -70,10 +71,19 @@ public class MazeController : MonoBehaviour
         await this.Items.Generate();
         await CleanupDoors();
 
-    
+
+        int seen = 0;
         foreach (var cell in Grid.Cells)
         {
-            GameObject go = Instantiate(debugCube, cell.Position, Quaternion.identity, this.transform);
+            GameObject go = Instantiate(debugCubePath, cell.Position, Quaternion.identity, this.transform);
+            go.name = $"{seen}";
+            go.tag = "Path";
+
+            go.AddComponent<CellMono>();
+            go.GetComponent<CellMono>().Position = cell.Position;
+            go.GetComponent<CellMono>().Room = cell.Room;
+            go.GetComponent<CellMono>().Type = cell.Type;
+            seen++;
         }
        
 
@@ -109,7 +119,7 @@ public class MazeController : MonoBehaviour
         // Register doors into grid.
         foreach (var doors in DoorRegistry.Doors)
         {
-            Cell existingCell = this.Grid.Find(doors.Key.transform.position.RoundToInt(), 2);
+            Cell existingCell = this.Grid.Find(doors.Key.transform.position.RoundToInt(), new Vector3(2f, 2f, 2f));
 
             // The door should already exist if not we have problems.
             if (existingCell.Type == CellType.None)
@@ -131,6 +141,7 @@ public class MazeController : MonoBehaviour
             // Set the current cell and neighbor cell to door.
             existingCell.Type = CellType.Door;
             directNeighborCell.Type = CellType.Door;
+            directNeighborCell.Room = doors.Value.GetOtherRoom(existingCell.Room);
 
             // Debug cubes.
             //Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);

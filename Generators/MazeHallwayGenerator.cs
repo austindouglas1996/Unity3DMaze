@@ -450,7 +450,10 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         // Take our temporary grid and put into the maze grid.
         foreach (var cell in MapGrid.Cells)
         {
-            this.Maze.Grid.Add(cell.Position, CellType.Hallway);
+            if (cell.Room == null)
+                Debug.LogWarning("A cell is added without a room attached.");
+
+            Cell newCell = this.Maze.Grid.Add(cell.Position, CellType.Hallway, cell.Room);
         }
     }
 
@@ -501,6 +504,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             if (map.IsRoot)
             {
                 // Set a connection with the door.
+                newHall.name = "Root";
                 this.Maze.DoorRegistry.SetConnection(map.DoorPair.Door, newHall);
             }
 
@@ -914,7 +918,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         newMap.DoorPair = pair;
 
         // Set the value.
-        this.MapGrid.Add(pos, CellType.Hallway, "CreateMap");
+        this.MapGrid.Add(pos, CellType.Hallway);
         this.PreMappedCells.Add(newMap);
 
         return newMap;

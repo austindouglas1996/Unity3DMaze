@@ -152,8 +152,10 @@ public class MazeGrid
     /// <param name="position"></param>
     /// <param name="offset"></param>
     /// <returns></returns>
-    public Cell Find(Vector3 position, float tolerance = 0.1f)
+    public Cell Find(Vector3 position, Vector3 tolerance)
     {
+        if (tolerance == null) tolerance = new Vector3(0.1f, 0.1f, 0.1f);
+
         float tileSize = 4f;
 
         foreach (Cell cell in Cells)
@@ -162,9 +164,9 @@ public class MazeGrid
             float halfTileSize = tileSize / 2;
 
             // Check if the position is within the bounds of the tile, considering a small tolerance
-            if (Mathf.Abs(cell.Position.x - position.x) < halfTileSize + tolerance &&
-                Mathf.Abs(cell.Position.y - position.y) < halfTileSize + tolerance &&
-                Mathf.Abs(cell.Position.z - position.z) < halfTileSize + tolerance)
+            if (Mathf.Abs(cell.Position.x - position.x) < halfTileSize + tolerance.x &&
+                Mathf.Abs(cell.Position.y - position.y) < halfTileSize + tolerance.y &&
+                Mathf.Abs(cell.Position.z - position.z) < halfTileSize + tolerance.z)
             {
                 return cell;
             }
@@ -249,10 +251,12 @@ public class MazeGrid
     }
 
 
-    public Cell Add(Vector3Int pos, CellType type, string n = "")
+    public Cell Add(Vector3Int pos, CellType type, RoomMono room = null)
     {
         Cell newCell = this[pos];
         newCell.Type = type;
+        newCell.Room = room;
+
         this.Cells.Add(newCell);
 
         return newCell;
