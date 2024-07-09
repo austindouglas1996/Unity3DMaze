@@ -294,7 +294,7 @@ public class RoomMono : MonoBehaviour
     /// <summary>
     /// Generate the props for each room piece.
     /// </summary>
-    public async Task GenerateProps()
+    public virtual async Task GenerateProps()
     {
         foreach (RoomFixtureMono piece in this.transform.GetComponentsInChildren<RoomFixtureMono>())
         {
@@ -396,7 +396,7 @@ public class RoomMono : MonoBehaviour
 
         Doors = await GenerateX(RoomFixtureIdentityType.Door);
 
-        await this.GenerateProps();
+        //await this.GenerateProps();
 
         GenerateFinished = true;
     }

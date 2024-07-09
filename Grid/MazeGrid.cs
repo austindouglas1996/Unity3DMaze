@@ -253,11 +253,6 @@ public class MazeGrid
     {
         Cell newCell = this[pos];
         newCell.Type = type;
-        if (n != "")
-            newCell.n = n;
-        else
-            throw new ArgumentException("Name cannot be null.");
-
         this.Cells.Add(newCell);
 
         return newCell;
@@ -291,7 +286,6 @@ public class MazeGrid
             {
                 Vector3Int currentPosition = floorObject.position.RoundToInt();
                 Cell newCell = new Cell() { Type = type, Position = currentPosition + new Vector3Int(0, 2, 0), Room = room };
-                newCell.n = "Room";
 
                 Cells.Add(newCell);
                 newBounds.Add(newCell);
@@ -330,7 +324,6 @@ public class MazeGrid
                 {
                     Vector3Int currentPosition = new Vector3Int(x, y, z);
                     Cell newCell = new Cell() { Type = type, Position = currentPosition };
-                    newCell.n = "Room1";
 
                     Cells.Add(newCell);
                     newBounds.Add(newCell);

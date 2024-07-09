@@ -108,34 +108,12 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
 
         await Task.Delay(10);
 
+        foreach (RoomMono room in Generated)
+        {
+            this.Maze.Grid.AddBounds(room, CellType.Room);
+        }
+
         this.GenerateFinished = true;
-    }
-
-    /// <summary>
-    /// Remove a <see cref="RoomMono"/> that is in <see cref="Generated"/>.
-    /// </summary>
-    /// <param name="roomA"></param>
-    /// <returns></returns>
-    /// <exception cref="System.ArgumentNullException"></exception>
-    /// <exception cref="System.NullReferenceException"></exception>
-    public bool RemoveRoom(RoomMono roomA)
-    {
-        if (roomA == null)
-            throw new System.ArgumentNullException(nameof(roomA));
-
-        if (!Generated.Contains(roomA))
-            throw new System.NullReferenceException("roomA does not exist in GeneratedRooms list");
-
-        // Remove.
-        Generated.Remove(roomA);
-
-        // Remove bounds.
-        this.Maze.Grid.RemoveBounds(roomA.Bounds, roomA.transform.position.RoundToInt());
-
-        // Destroy.
-        DestroyImmediate(roomA.gameObject);
-
-        return true;
     }
 
     /// <summary>
@@ -332,6 +310,33 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         this.Generated.Add(room);
 
         return room;
+    }
+
+    /// <summary>
+    /// Remove a <see cref="RoomMono"/> that is in <see cref="Generated"/>.
+    /// </summary>
+    /// <param name="roomA"></param>
+    /// <returns></returns>
+    /// <exception cref="System.ArgumentNullException"></exception>
+    /// <exception cref="System.NullReferenceException"></exception>
+    public bool RemoveRoom(RoomMono roomA)
+    {
+        if (roomA == null)
+            throw new System.ArgumentNullException(nameof(roomA));
+
+        if (!Generated.Contains(roomA))
+            throw new System.NullReferenceException("roomA does not exist in GeneratedRooms list");
+
+        // Remove.
+        Generated.Remove(roomA);
+
+        // Remove bounds.
+        this.Maze.Grid.RemoveBounds(roomA.Bounds, roomA.transform.position.RoundToInt());
+
+        // Destroy.
+        DestroyImmediate(roomA.gameObject);
+
+        return true;
     }
 
     /// <summary>

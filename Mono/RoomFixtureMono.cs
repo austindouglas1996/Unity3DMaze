@@ -291,7 +291,7 @@ public class RoomFixtureMono : MonoBehaviour
             PropHolder.Destroy();
             while (PropHolder.IsDestroyed())
             {
-                await Task.Delay(10);
+                await Task.Delay(1);
             }
         }
 

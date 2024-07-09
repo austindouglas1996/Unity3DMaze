@@ -10,6 +10,8 @@ using VHierarchy.Libs;
 /// </summary>
 public class HallwayMono : RoomMono
 {
+    private bool ReadyForProps = false;
+
     /// <summary>
     /// The original facing direction of the room. Helper for <see cref="HallwayMono"/>.
     /// </summary>
@@ -36,9 +38,18 @@ public class HallwayMono : RoomMono
         // Asign the sizes of props allowed depending on some rules.
         AssignPropSizes(map.UpV, map.RightV, map.BottomV, map.LeftV);
 
+        ReadyForProps = true;
         await this.GenerateProps();
 
         this.GenerateFinished = true;
+    }
+
+    public override async Task GenerateProps()
+    {
+        if (!ReadyForProps)
+            return;
+
+        await base.GenerateProps();
     }
 
     /// <summary>

@@ -74,10 +74,10 @@ public class HallwayStairMap
     /// <param name="grid"></param>
     public void AddToGrid(MazeGrid grid)
     {
-        grid.Add(TopStair, CellType.Stairway, "Stair");
-        grid.Add(BottomStair, CellType.Stairway, "Stair");
-        grid.Add(BufferL, CellType.Stairway, "Stair");
-        grid.Add(BufferR, CellType.Stairway, "Stair");
+        grid.Add(TopStair, CellType.Stairway);
+        grid.Add(BottomStair, CellType.Stairway);
+        grid.Add(BufferL, CellType.Stairway);
+        grid.Add(BufferR, CellType.Stairway);
     }
 
     /// <summary>
@@ -450,7 +450,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         // Take our temporary grid and put into the maze grid.
         foreach (var cell in MapGrid.Cells)
         {
-            this.Maze.Grid.Add(cell.Position, CellType.Hallway, cell.n);
+            this.Maze.Grid.Add(cell.Position, CellType.Hallway);
         }
     }
 

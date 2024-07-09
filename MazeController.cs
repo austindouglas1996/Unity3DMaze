@@ -74,8 +74,6 @@ public class MazeController : MonoBehaviour
         foreach (var cell in Grid.Cells)
         {
             GameObject go = Instantiate(debugCube, cell.Position, Quaternion.identity, this.transform);
-            if (cell.n != "")
-                go.name = cell.n;
         }
        
 
