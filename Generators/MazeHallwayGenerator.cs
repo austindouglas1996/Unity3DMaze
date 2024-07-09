@@ -466,8 +466,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             GameObject bottomGO = Instantiate(this.StairwayPrefabB, stairMap.BottomStair, stairMap.DetermineRotation(), this.transform);
             GameObject topGO = Instantiate(this.StairwayPrefabT, stairMap.TopStair, stairMap.DetermineRotation(), this.transform);
 
-            GameObject g = Instantiate(this.Maze.debugCube4, stairMap.Entrance, stairMap.DetermineRotation(), this.transform);
-            GameObject g1 = Instantiate(this.Maze.debugCube4, stairMap.Exit, stairMap.DetermineRotation(), this.transform);
+            //GameObject g = Instantiate(this.Maze.debugCube4, stairMap.Entrance, stairMap.DetermineRotation(), this.transform);
+            //GameObject g1 = Instantiate(this.Maze.debugCube4, stairMap.Exit, stairMap.DetermineRotation(), this.transform);
 
             //Instantiate(this.Maze.debugCube, stairMap.BufferR, stairMap.DetermineRotation(), this.transform);
             //Instantiate(this.Maze.debugCube, stairMap.BufferL, stairMap.DetermineRotation(), this.transform);
