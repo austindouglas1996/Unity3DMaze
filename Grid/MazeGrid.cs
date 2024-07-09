@@ -253,13 +253,18 @@ public class MazeGrid
 
     public Cell Add(Vector3Int pos, CellType type, RoomMono room = null)
     {
-        Cell newCell = this[pos];
-        newCell.Type = type;
-        newCell.Room = room;
+        Cell cell = this.Cells.FirstOrDefault(cell => cell.Position == pos);
 
-        this.Cells.Add(newCell);
+        if (cell == null)
+        {
+            cell = new Cell(); 
+            this.Cells.Add(cell);
+        }
 
-        return newCell;
+        cell.Type = type;
+        cell.Room = room;
+
+        return cell;
     }
 
     public bool Remove(Vector3Int pos)

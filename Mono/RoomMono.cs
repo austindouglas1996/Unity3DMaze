@@ -396,7 +396,7 @@ public class RoomMono : MonoBehaviour
 
         Doors = await GenerateX(RoomFixtureIdentityType.Door);
 
-        //await this.GenerateProps();
+        await this.GenerateProps();
 
         GenerateFinished = true;
     }

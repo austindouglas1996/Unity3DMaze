@@ -22,6 +22,25 @@ public class MazeController : MonoBehaviour
     [HideInInspector]
     public bool GenerateFinished = false;
 
+    [Header("Debug")]
+    [Tooltip("Render the pathing cells for the maze grid.")]
+    public bool ShowPathingCells = false;
+    [SerializeField] private GameObject PathCellCube;
+
+    [Tooltip("Render the door position cells used for pathing.")]
+    public bool ShowDoorPathingCells = false;
+    [SerializeField] private GameObject DoorPathCube;
+
+    /// <summary>
+    /// Container for path cells.
+    /// </summary>
+    private GameObject PathContainer;
+
+    /// <summary>
+    /// Container for door path cells.
+    /// </summary>
+    private GameObject DoorPathContainer;
+
     /// <summary>
     /// Controls the connections to doors.
     /// </summary>
@@ -57,6 +76,9 @@ public class MazeController : MonoBehaviour
     /// </summary>
     private async void Start()
     {
+        this.PathContainer = Instantiate(new GameObject("PathContainer"), this.transform.position, Quaternion.identity);
+        this.DoorPathContainer = Instantiate(new GameObject("DoorPathContainer"), this.transform.position, Quaternion.identity);
+
         Grid = new MazeGrid();
         this.DoorRegistry = this.GetComponent<DoorRegistry>();
         this.Rooms = this.GetComponent<MazeRoomGenerator>();
@@ -72,18 +94,15 @@ public class MazeController : MonoBehaviour
         await CleanupDoors();
 
 
-        int seen = 0;
         foreach (var cell in Grid.Cells)
         {
-            GameObject go = Instantiate(debugCubePath, cell.Position, Quaternion.identity, this.transform);
-            go.name = $"{seen}";
+            GameObject go = Instantiate(this.PathCellCube, cell.Position, Quaternion.identity, this.PathContainer.transform);
             go.tag = "Path";
 
             go.AddComponent<CellMono>();
             go.GetComponent<CellMono>().Position = cell.Position;
             go.GetComponent<CellMono>().Room = cell.Room;
             go.GetComponent<CellMono>().Type = cell.Type;
-            seen++;
         }
        
 
@@ -144,8 +163,30 @@ public class MazeController : MonoBehaviour
             directNeighborCell.Room = doors.Value.GetOtherRoom(existingCell.Room);
 
             // Debug cubes.
-            //Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);
-            //Instantiate(debugCube, directNeighborCell.Position, Quaternion.identity, this.transform);
+            Instantiate(this.DoorPathCube, existingCell.Position, Quaternion.identity, this.DoorPathContainer.transform);
+            Instantiate(this.DoorPathCube, directNeighborCell.Position, Quaternion.identity, this.DoorPathContainer.transform);
+        }
+    }
+
+    private void OnValidate()
+    {
+        this.DisplayPathingCells(this.ShowPathingCells);
+        this.DisplayDoorCells(this.ShowDoorPathingCells);
+    }
+
+    private void DisplayPathingCells(bool show)
+    {
+        foreach (var meshRenderer in PathContainer.GetComponentsInChildren<MeshRenderer>())
+        {
+            meshRenderer.enabled = show;
+        }
+    }
+
+    private void DisplayDoorCells(bool show)
+    {
+        foreach (var meshRenderer in DoorPathContainer.GetComponentsInChildren<MeshRenderer>())
+        {
+            meshRenderer.enabled = show;
         }
     }
 }
