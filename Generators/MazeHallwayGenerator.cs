@@ -344,9 +344,9 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
             if (entranceCell.Type == CellType.None || exitCell.Type == CellType.None)
             {
-                //stairMap.RemoveFromGrid(this.MapGrid);
-                //removeStairs.Add(stairMap);
-                //continue;
+                stairMap.RemoveFromGrid(this.MapGrid);
+                removeStairs.Add(stairMap);
+                continue;
             }
         }
 
@@ -444,8 +444,22 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// </summary>
     private async Task CommitCells()
     {
-        int seen = 0;
+        await CommitStairCells();
+        await CommitHallways();
 
+        // Take our temporary grid and put into the maze grid.
+        foreach (var cell in MapGrid.Cells)
+        {
+            this.Maze.Grid.Add(cell.Position, CellType.Hallway, cell.n);
+        }
+    }
+
+    /// <summary>
+    /// Generate the hallway stairs.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CommitStairCells()
+    {
         // Take our stairways and create into objects.
         foreach (var stairMap in this.PreMappedStairCells)
         {
@@ -454,10 +468,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
             GameObject g = Instantiate(this.Maze.debugCube4, stairMap.Entrance, stairMap.DetermineRotation(), this.transform);
             GameObject g1 = Instantiate(this.Maze.debugCube4, stairMap.Exit, stairMap.DetermineRotation(), this.transform);
-
-            g.name = $"Entrance{seen}";
-            g1.name = $"Exit{seen}";
-            seen++;
 
             //Instantiate(this.Maze.debugCube, stairMap.BufferR, stairMap.DetermineRotation(), this.transform);
             //Instantiate(this.Maze.debugCube, stairMap.BufferL, stairMap.DetermineRotation(), this.transform);
@@ -473,7 +483,14 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             Generated.Add(bottom);
             Generated.Add(top);
         }
+    }
 
+    /// <summary>
+    /// Generate our hallway cells into the grid.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CommitHallways()
+    {
         // Take our map and create into objects.
         foreach (var map in this.PreMappedCells)
         {
@@ -499,12 +516,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             // Add to generated for later processing.
             Generated.Add(newHall);
         }
-
-        // Take our temporary grid and put into the maze grid.
-        foreach (var cell in MapGrid.Cells)
-        {
-            this.Maze.Grid.Add(cell.Position, CellType.Hallway, cell.n);
-        }
     }
 
     /// <summary>
@@ -520,7 +531,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         Vector3Int BPOS = B.Position;
 
         // Don't allow hallway paths that are outside a small range.
-        if (Vector3.Distance(APOS, BPOS) > 30)
+        if (Vector3.Distance(APOS, BPOS) > 40)
             return;
 
         // Get (possibly) best direction.
@@ -568,14 +579,74 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         }
     }
 
+    /// <summary>
+    /// Create cell instances along a path from one direction to another along the Z axis.
+    /// </summary>
+    /// <param name="curr"></param>
+    /// <param name="A"></param>
+    /// <param name="B"></param>
+    /// <returns></returns>
+    private Vector3Int CreatePathBetweenCellsX(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
+    {
+        // Determine if we're going up or down.
+        bool positive = IsPositiveDirection(curr.x, B.x);
 
+        while (positive && curr.x - B.x < 0 || !positive && curr.x - B.x > 0)
+        {
+            curr.x += positive ? 4 : -4;
+
+            // Check if this is the start position of a stairway. If so, adjust our position to the end.
+            var stairway = request.FirstOrDefault(r => r.Entrance == curr);
+            if (stairway != null)
+            {
+                curr = stairway.Exit;
+            }
+        }
+
+        return curr;
+    }
+
+    /// <summary>
+    /// Create cell instances along a path from one direction to another along the Z axis.
+    /// </summary>
+    /// <param name="curr"></param>
+    /// <param name="A"></param>
+    /// <param name="B"></param>
+    /// <returns></returns>
+    private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
+    {
+        // Determine if we're going up or down.
+        bool positive = IsPositiveDirection(curr.z, B.z);
+
+        while (positive && curr.z - B.z < 0 || !positive && curr.z - B.z > 0)
+        {            
+            curr.z += positive ? 4 : -4;
+
+            // Check if this is the start position of a stairway. If so, adjust our position to the end.
+            var stairway = request.FirstOrDefault(r => r.Entrance == curr);
+            if (stairway != null)
+            {
+                curr = stairway.Exit;
+            }
+        }
+
+        return curr;
+    }
+
+    /// <summary>
+    /// Map out vertical openings along a path between A and B. 
+    /// </summary>
+    /// <param name="curr"></param>
+    /// <param name="A"></param>
+    /// <param name="B"></param>
+    /// <returns></returns>
     private Tuple<bool, List<HallwayStairMap>> IsThereVerticalOpening(Vector3Int curr, Vector3Int A, Vector3Int B)
     {
         List<HallwayStairMap> results = new List<HallwayStairMap>();
         int stepsRequired = Math.Abs((A.y - B.y) / 4);
 
         // Too deep.
-        if (stepsRequired > 6)
+        if (stepsRequired > 6 || stepsRequired <= 0)
             return new Tuple<bool, List<HallwayStairMap>>(false, null);
 
         // Determine if we're going up or down.
@@ -651,6 +722,15 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         return new Tuple<bool, List<HallwayStairMap>>(true, results);
     }
 
+    /// <summary>
+    /// Determine if there is a vertical opening in a cell for a 2x2 block created.
+    /// </summary>
+    /// <param name="pos">Start position of the cell.</param>
+    /// <param name="direction">Direction X or Z. One must be set to one.</param>
+    /// <param name="positive">Direction next cells need to be created. +4/-4</param>
+    /// <param name="YDifference">The difference in the Y going up or down.</param>
+    /// <returns>False if no acceptable Y, or an instance with positions.</returns>
+    /// <exception cref="NotSupportedException"></exception>
     private Tuple<bool, HallwayStairMap> IsVerticalOpening(Vector3Int pos, Vector3Int direction, bool positive, int YDifference)
     {
         if (YDifference != -1 && YDifference != 1)
@@ -678,7 +758,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
             // Assign locations.
             start = this.GetBestCell(b1.Position + new Vector3Int(-x, 4, 0));
-            end = this.GetBestCell(pos + new Vector3Int((x*2), y, 0));
+            end = this.GetBestCell(pos + new Vector3Int((x * 2), y, 0));
         }
         else // We're doing Z.
         {
@@ -692,12 +772,12 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
             // Assign locations.
             start = this.GetBestCell(b1.Position + new Vector3Int(0, 4, -z));
-            end = this.GetBestCell(pos + new Vector3Int(0, y, (z*2)));
+            end = this.GetBestCell(pos + new Vector3Int(0, y, (z * 2)));
         }
 
         // Must be empty.
         if (t1.Type != CellType.None
-            || t2.Type != CellType.None 
+            || t2.Type != CellType.None
             || b1.Type != CellType.None
             || b2.Type != CellType.None)
         {
@@ -705,72 +785,20 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         }
 
         var newMap = new HallwayStairMap(b1.Position, b2.Position, t1.Position, t2.Position);
-        newMap.Entrance = start.Position;
-        newMap.Exit = end.Position;
+
+        // If our Y is going up switch the start and end.
+        if (YDifference == 1)
+        {
+            newMap.Entrance = end.Position;
+            newMap.Exit = start.Position;
+        }
+        else
+        {
+            newMap.Entrance = start.Position;
+            newMap.Exit = end.Position;
+        }
 
         return new Tuple<bool, HallwayStairMap>(true, newMap);
-    }
-
-
-
-    /// <summary>
-    /// Create cell instances along a path from one direction to another along the Z axis.
-    /// </summary>
-    /// <param name="curr"></param>
-    /// <param name="A"></param>
-    /// <param name="B"></param>
-    /// <returns></returns>
-    private Vector3Int CreatePathBetweenCellsX(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
-    {
-        // Determine if we're going up or down.
-        bool positive = IsPositiveDirection(curr.x, B.x);
-
-        while (positive && curr.x - B.x < 0 || !positive && curr.x - B.x > 0)
-        {
-            curr.x += positive ? 4 : -4;
-
-            // Check if this is the start position of a stairway. If so, adjust our position to the end.
-            var stairway = request.FirstOrDefault(r => r.TopStair == curr);
-            if (stairway != null)
-            {
-                curr.y = stairway.BottomStair.y;
-                continue;
-            }
-
-            this.CreateMap(curr, false);
-        }
-
-        return curr;
-    }
-
-    /// <summary>
-    /// Create cell instances along a path from one direction to another along the Z axis.
-    /// </summary>
-    /// <param name="curr"></param>
-    /// <param name="A"></param>
-    /// <param name="B"></param>
-    /// <returns></returns>
-    private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
-    {
-        // Determine if we're going up or down.
-        bool positive = IsPositiveDirection(curr.z, B.z);
-
-        while (positive && curr.z - B.z < 0 || !positive && curr.z - B.z > 0)
-        {            
-            curr.z += positive ? 4 : -4;
-
-            // Check if this is the start position of a stairway. If so, adjust our position to the end.
-            var stairway = request.FirstOrDefault(r => r.TopStair == curr);
-            if (stairway != null)
-            {
-                curr.y = stairway.BottomStair.y;
-                continue;
-            }
-
-            this.CreateMap(curr, false);
-        }
-
-        return curr;
     }
 
     /// <summary>
