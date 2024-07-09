@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [RequireComponent(typeof(DoorRegistry))]
 [RequireComponent(typeof(MazeRoomGenerator))]
@@ -9,6 +10,10 @@ using UnityEngine;
 public class MazeController : MonoBehaviour
 {
     public GameObject debugCube;
+    public GameObject debugCube2;
+    public GameObject debugCube3;
+    public GameObject debugCube4;
+    public GameObject debugCube5;
 
     /// <summary>
     /// Has the maze finished generating?
@@ -61,16 +66,18 @@ public class MazeController : MonoBehaviour
         await this.Rooms.Generate();
         await this.Hallways.Generate();
 
-        await Task.Delay(1000);
+        await Task.Delay(10);
         await this.Items.Generate();
         await CleanupDoors();
 
-        /*
+    
         foreach (var cell in Grid.Cells)
         {
-            Instantiate(debugCube, cell.Position, Quaternion.identity, this.transform);
+            GameObject go = Instantiate(debugCube, cell.Position, Quaternion.identity, this.transform);
+            if (cell.n != "")
+                go.name = cell.n;
         }
-        */
+       
 
         DoorRegistry.Debug();
         GenerateFinished = true;
@@ -128,8 +135,8 @@ public class MazeController : MonoBehaviour
             directNeighborCell.Type = CellType.Door;
 
             // Debug cubes.
-            Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);
-            Instantiate(debugCube, directNeighborCell.Position, Quaternion.identity, this.transform);
+            //Instantiate(debugCube, existingCell.Position, Quaternion.identity, this.transform);
+            //Instantiate(debugCube, directNeighborCell.Position, Quaternion.identity, this.transform);
         }
     }
 }

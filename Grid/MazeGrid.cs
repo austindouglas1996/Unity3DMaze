@@ -249,20 +249,24 @@ public class MazeGrid
     }
 
 
-    public Cell Add(Vector3Int pos, CellType type)
+    public Cell Add(Vector3Int pos, CellType type, string n = "")
     {
         Cell newCell = this[pos];
         newCell.Type = type;
+        if (n != "")
+            newCell.n = n;
+        else
+            throw new ArgumentException("Name cannot be null.");
 
         this.Cells.Add(newCell);
 
         return newCell;
     }
 
-    public void Remove(Vector3Int pos)
+    public bool Remove(Vector3Int pos)
     {
         Cell cell = this[pos];
-        this.Cells.Remove(cell);
+        return this.Cells.Remove(cell);
     }
 
 
@@ -287,6 +291,7 @@ public class MazeGrid
             {
                 Vector3Int currentPosition = floorObject.position.RoundToInt();
                 Cell newCell = new Cell() { Type = type, Position = currentPosition + new Vector3Int(0, 2, 0), Room = room };
+                newCell.n = "Room";
 
                 Cells.Add(newCell);
                 newBounds.Add(newCell);
@@ -316,15 +321,16 @@ public class MazeGrid
         Vector3Int minCorner = (bounds.center - bounds.extents).RoundToInt();
         Vector3Int maxCorner = (bounds.center + bounds.extents).RoundToInt();
 
-        // Loop through X,Y,Z. Each tile is 4f. Each prefab has an offset of 2.
-        for (int x = minCorner.x; x < maxCorner.x; x += 4)
+        // Loop through X,Y,Z. Each tile is 4f. Adjust the step size accordingly
+        for (int x = minCorner.x + 2; x < maxCorner.x; x += 4)
         {
-            for (int y = minCorner.y; y < maxCorner.y; y += 4)
+            for (int y = minCorner.y + 2; y < maxCorner.y; y += 4)
             {
-                for (int z = minCorner.z; z < maxCorner.z; z += 4)
+                for (int z = minCorner.z + 2; z < maxCorner.z; z += 4)
                 {
                     Vector3Int currentPosition = new Vector3Int(x, y, z);
-                    Cell newCell = new Cell() { Type = type, Position = currentPosition + new Vector3Int(0,2,0) };
+                    Cell newCell = new Cell() { Type = type, Position = currentPosition };
+                    newCell.n = "Room1";
 
                     Cells.Add(newCell);
                     newBounds.Add(newCell);

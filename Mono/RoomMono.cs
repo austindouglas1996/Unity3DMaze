@@ -472,7 +472,7 @@ public class RoomMono : MonoBehaviour
         switch (type)
         {
             case RoomFixtureIdentityType.Floor:
-                if (pieceOptions.IsTrap)
+                if (pieceOptions.IsTrap && MazeResourceManager.Instance.Castle.FloorTraps.Any())
                 {
                     newObject = Instantiate(MazeResourceManager.Instance.Castle.FloorTraps.Random(), parent.position, parent.rotation);
                 }

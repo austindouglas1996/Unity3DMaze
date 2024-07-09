@@ -7,4 +7,5 @@ public enum CellType
     Room,
     Door,
     Hallway,
+    Stairway
 }

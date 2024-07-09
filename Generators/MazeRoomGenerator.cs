@@ -106,7 +106,7 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         ChooseRootRoom();
         await GenerateRoomsUntilSatisfied();
 
-        await Task.Delay(500);
+        await Task.Delay(10);
 
         this.GenerateFinished = true;
     }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.VisualScripting;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
@@ -25,7 +26,107 @@ public class HallwayMap
     public bool UpV = true;
     public bool BottomV = true;
 
+    public string NameOverride = "";
     public DoorPair DoorPair = null;
+}
+
+/// <summary>
+/// Information on a request for a hallway stair to be generated. Information on the stairway
+/// position, along with buffer positions to make sure no cells are generated inside the hallway.
+/// Finally, additional information is supplied to help during final generation.
+/// </summary>
+/// <remarks>Old system used StartL and End for top/bottom stairs.</remarks>
+public class HallwayStairMap
+{
+    public HallwayStairMap(Vector3Int top, Vector3Int end, Vector3Int bufferL, Vector3Int bufferR)
+    {
+        this.TopStair = top;
+        this.BottomStair = end;
+        this.BufferL = bufferL;
+        this.BufferR = bufferR;
+    }
+
+    /// <summary>
+    /// Stair locations are used for placing the top & bottom stair.
+    /// </summary>
+    public Vector3Int TopStair { get; set; }
+    public Vector3Int BottomStair { get; set; }
+
+    /// <summary>
+    /// Buffer locations are used for determining the spacing above each stair.
+    /// Each set of stairs requires 1 level (4f) above.
+    /// </summary>
+    public Vector3Int BufferL { get; set; }
+    public Vector3Int BufferR { get; set; }
+
+    /// <summary>
+    /// Entrance and exit help determine if the stairway is still acceptable during 
+    /// generation. There is many variables that cause a cell to be eliminated.
+    /// These cells will be checked during generation to confirm the stairway can
+    /// be generated.
+    /// </summary>
+    public Vector3Int Entrance { get; set; }
+    public Vector3Int Exit { get; set; }
+
+    /// <summary>
+    /// Add the variables part of this request into an instance of <see cref="MazeGrid"/>.
+    /// </summary>
+    /// <param name="grid"></param>
+    public void AddToGrid(MazeGrid grid)
+    {
+        grid.Add(TopStair, CellType.Stairway, "Stair");
+        grid.Add(BottomStair, CellType.Stairway, "Stair");
+        grid.Add(BufferL, CellType.Stairway, "Stair");
+        grid.Add(BufferR, CellType.Stairway, "Stair");
+    }
+
+    /// <summary>
+    /// Remove the variables part of this request from an instance of <see cref="MazeGrid"/>.
+    /// </summary>
+    /// <param name="grid"></param>
+    public void RemoveFromGrid(MazeGrid grid)
+    {
+        grid.Remove(TopStair);
+        grid.Remove(BottomStair);
+        grid.Remove(BufferL);
+        grid.Remove(BufferR);
+    }
+
+    /// <summary>
+    /// Determine the rotation of each of the stairway cells.
+    /// </summary>
+    /// <param name="start"></param>
+    /// <param name="end"></param>
+    /// <returns></returns>
+    public Quaternion DetermineRotation()
+    {
+        Vector3Int start = this.TopStair;
+        Vector3Int end = this.BottomStair;
+
+        if (start.x == end.x)
+        {
+            // Same X, compare Z
+            int deltaZ = end.z - start.z;
+            if (deltaZ > 0)
+                return Quaternion.Euler(0, -90, 0); // Z positive
+            else
+                return Quaternion.Euler(0, 90, 0); // Z negative
+        }
+        else if (start.z == end.z)
+        {
+            // Same Z, compare X
+            int deltaX = end.x - start.x;
+            if (deltaX > 0)
+                return Quaternion.Euler(0, 0, 0); // X positive
+            else
+                return Quaternion.Euler(0, 180, 0); // X negative
+        }
+        else
+        {
+            Debug.LogError("Invalid start and end positions: they must have either the same X or the same Z value.");
+            return Quaternion.identity;
+        }
+    }
 }
 
 /// <summary>
@@ -39,7 +140,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     [SerializeField] private GameObject HallwayPrefab;
 
     [Tooltip("Basic prefab for 3D hallways. God help us all.")]
-    [SerializeField] private GameObject StairwayPrefab;
+    [SerializeField] private GameObject StairwayPrefabT;
+    [SerializeField] private GameObject StairwayPrefabB;
 
     /// <summary>
     /// Gets the <see cref="Maze"/> instance to use for accessing important properties.
@@ -70,7 +172,9 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
     private MazeGrid MapGrid = new MazeGrid();
     private List<HallwayMono> HallwayCells = new List<HallwayMono>();
+
     private List<HallwayMap> PreMappedCells = new List<HallwayMap>();
+    private List<HallwayStairMap> PreMappedStairCells = new List<HallwayStairMap>();
 
     /// <summary>
     /// Called when the generator is initialized.
@@ -94,7 +198,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         this.MapRootCells(this.Maze.DoorRegistry.GetAvailable());
 
         // Map paths between roots.
-        await this.MapPathCells();
+        this.MapPathCells();
 
         // Find possible gaps between cells to create unique bridges.
         this.MapPathBridges();
@@ -104,11 +208,11 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
         // Create the pathing for each maze cell.
         // This is like a cleanup.
-        await this.MapPathing();
-        await this.MapPathing();
+        this.MapMathingPreRun();
+        this.MapPathing();
 
         // Final touchups before deploying.
-        this.MapDetails();
+        //this.MapDetails();
 
         // Finally, commit our changes to the Maze.
         await this.CommitCells();
@@ -160,9 +264,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                     throw new System.Exception("Direction: " + direction + " is not supported.");
             }
 
-            HallwayMap newMap = this.CreateMap(position.RoundToInt(), true, pair);
-            if (newMap == null)
-                Debug.LogWarning("Root hallway was not created.");
+            this.CreateMap(position.RoundToInt(), true, pair);
         }
     }
 
@@ -170,7 +272,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// Go through each root cell and try to connect them with the others. This creates pathing throughout the maze.
     /// </summary>
     /// <returns></returns>
-    private async Task MapPathCells()
+    private void MapPathCells()
     {
         List<HallwayMap> rootCells = PreMappedCells.Where(r => r.IsRoot).ToList();
 
@@ -183,8 +285,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 ConnectTwoRoots(rootCells[i], rootCells[j]);
             }
         }
-
-        await Task.Delay(100);
     }
 
     /// <summary>
@@ -222,9 +322,43 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     }
 
     /// <summary>
+    /// Clean up some existing elements before creating hallway paths.
+    /// </summary>
+    private void MapMathingPreRun()
+    {
+        List<HallwayStairMap> removeStairs = new List<HallwayStairMap>();
+
+        // Check our stairs and make sure they are valid.
+        foreach (var stairMap in this.PreMappedStairCells)
+        {
+            Cell entranceCell = this.GetBestCell(stairMap.Entrance);
+            Cell exitCell = this.GetBestCell(stairMap.Exit);
+
+            // No double hallways.
+            if (exitCell.Type == CellType.Stairway || entranceCell.Type == CellType.Stairway)
+            {
+                stairMap.RemoveFromGrid(this.MapGrid);
+                removeStairs.Add(stairMap);
+                continue;
+            }
+
+            if (entranceCell.Type == CellType.None || exitCell.Type == CellType.None)
+            {
+                //stairMap.RemoveFromGrid(this.MapGrid);
+                //removeStairs.Add(stairMap);
+                //continue;
+            }
+        }
+
+        // Remove stairs.
+        foreach (var stairMap in removeStairs)
+            this.PreMappedStairCells.Remove(stairMap);
+    }
+
+    /// <summary>
     /// Determines map walls and if they should be open, closed, or destroyed.
     /// </summary>
-    private async Task MapPathing()
+    private void MapPathing()
     {
         foreach (var map in PreMappedCells.ToList())
         {
@@ -310,6 +444,36 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// </summary>
     private async Task CommitCells()
     {
+        int seen = 0;
+
+        // Take our stairways and create into objects.
+        foreach (var stairMap in this.PreMappedStairCells)
+        {
+            GameObject bottomGO = Instantiate(this.StairwayPrefabB, stairMap.BottomStair, stairMap.DetermineRotation(), this.transform);
+            GameObject topGO = Instantiate(this.StairwayPrefabT, stairMap.TopStair, stairMap.DetermineRotation(), this.transform);
+
+            GameObject g = Instantiate(this.Maze.debugCube4, stairMap.Entrance, stairMap.DetermineRotation(), this.transform);
+            GameObject g1 = Instantiate(this.Maze.debugCube4, stairMap.Exit, stairMap.DetermineRotation(), this.transform);
+
+            g.name = $"Entrance{seen}";
+            g1.name = $"Exit{seen}";
+            seen++;
+
+            //Instantiate(this.Maze.debugCube, stairMap.BufferR, stairMap.DetermineRotation(), this.transform);
+            //Instantiate(this.Maze.debugCube, stairMap.BufferL, stairMap.DetermineRotation(), this.transform);
+
+            HallwayMono bottom = bottomGO.GetComponent<HallwayMono>();
+            HallwayMono top = topGO.GetComponent<HallwayMono>();
+
+            // Generate.
+            await bottom.Generate();
+            await top.Generate();
+
+            // Add to generated.
+            Generated.Add(bottom);
+            Generated.Add(top);
+        }
+
         // Take our map and create into objects.
         foreach (var map in this.PreMappedCells)
         {
@@ -323,6 +487,12 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 this.Maze.DoorRegistry.SetConnection(map.DoorPair.Door, newHall);
             }
 
+            if (!string.IsNullOrEmpty(map.NameOverride))
+                newHall.name = map.NameOverride;
+
+            // Set the cell room.
+            this.MapGrid[map.Position].Room = newHall;
+
             // Generate.
             await newHall.Generate(map);
 
@@ -333,7 +503,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         // Take our temporary grid and put into the maze grid.
         foreach (var cell in MapGrid.Cells)
         {
-            this.Maze.Grid.Add(cell.Position, CellType.Hallway);
+            this.Maze.Grid.Add(cell.Position, CellType.Hallway, cell.n);
         }
     }
 
@@ -353,6 +523,13 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         if (Vector3.Distance(APOS, BPOS) > 30)
             return;
 
+        // Get (possibly) best direction.
+        Vector3 direction = DetermineDirectionBetweenPoints(APOS, BPOS);
+
+        // Keep a list of stair hallways that will be made during this
+        // this connection between these two roots.
+        List<HallwayStairMap> stairways = new List<HallwayStairMap>();
+
         // Only connect hallway roots on same X/Z
         // Let the record show we started here on 7/2.
         // This If had a return in case we forget from the PTSD.
@@ -360,22 +537,181 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         //
         // 7/7 bonjour, SOS.
         if (APOS.y != BPOS.y)
-            return;
+        {
+            var verticalSpaces = IsThereVerticalOpening(APOS, A.Position, B.Position);
+            if (verticalSpaces.Item1)
+            {
+                stairways = verticalSpaces.Item2;
 
-        // Get (possibly) best direction.
-        Vector3 direction = DetermineDirectionBetweenPoints(APOS, BPOS);
+                // Map each set of stairways.
+                foreach (var stairway in stairways)
+                {                
+                    // Add for later processing.
+                    this.PreMappedStairCells.Add(stairway);
+
+                    // Add to grid.
+                    stairway.AddToGrid(this.MapGrid);
+                }
+
+            }
+        }
 
         if (direction.x == 1)
         {
-            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position);
-            CreatePathBetweenCellsZ(currentPosition, A.Position, B.Position);
+            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
+            CreatePathBetweenCellsZ(currentPosition, A.Position, B.Position, stairways);
         }
         else
         {
-            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position);
-            CreatePathBetweenCellsX(currentPosition, A.Position, B.Position);
+            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
+            CreatePathBetweenCellsX(currentPosition, A.Position, B.Position, stairways);
         }
     }
+
+
+    private Tuple<bool, List<HallwayStairMap>> IsThereVerticalOpening(Vector3Int curr, Vector3Int A, Vector3Int B)
+    {
+        List<HallwayStairMap> results = new List<HallwayStairMap>();
+        int stepsRequired = Math.Abs((A.y - B.y) / 4);
+
+        // Too deep.
+        if (stepsRequired > 6)
+            return new Tuple<bool, List<HallwayStairMap>>(false, null);
+
+        // Determine if we're going up or down.
+        bool positiveX = IsPositiveDirection(curr.x, B.x);
+        bool positiveY = IsPositiveDirection(A.y, B.y);
+        bool positiveZ = IsPositiveDirection(curr.z, B.z);
+
+        // Stairways sometimes turn. Due to this we need a one cell break
+        // between the two. This is a rare case, but this resolves the problem
+        // when dealing with an L staircase.
+        bool spacingBreak = false;
+
+        // Handle the X direction.
+        while (positiveX && curr.x - B.x < 0 || !positiveX && curr.x - B.x > 0)
+        {
+            if (stepsRequired <= 0)
+                break;
+
+            curr.x += positiveX ? 4 : -4;
+
+            // Is a space required?
+            if (spacingBreak)
+            {
+                spacingBreak = false;
+                continue;
+            }
+
+            var result = IsVerticalOpening(curr, new Vector3Int(1, 0, 0), positiveX, positiveY ? 1 : -1);
+            if (result.Item1)
+            {
+                results.Add(result.Item2);
+
+                // Adjust the position.
+                curr.y += positiveY ? 4 : -4;
+                curr.x += positiveX ? 8 : -8;
+
+                stepsRequired--;
+                spacingBreak = true;
+            }
+        }
+
+        // Handle the Z direction.
+        while (positiveZ && curr.z - B.z < 0 || !positiveZ && curr.z - B.z > 0)
+        {
+            if (stepsRequired <= 0)
+                break;
+
+            curr.z += positiveZ ? 4 : -4;
+
+            // Is a space required?
+            if (spacingBreak)
+            {
+                spacingBreak = false;
+                continue;
+            }
+
+            var result = IsVerticalOpening(curr, new Vector3Int(0, 0, 1), positiveZ, positiveY ? 1 : -1);
+            if (result.Item1)
+            {
+                results.Add(result.Item2);
+
+                // Adjust the position.
+                curr.y += positiveY ? +4 : -4;
+                curr.z += positiveZ ? +8 : -8;
+
+                stepsRequired--;
+            }
+        }
+
+        if (stepsRequired != 0)
+            return new Tuple<bool, List<HallwayStairMap>>(false, null);
+
+        return new Tuple<bool, List<HallwayStairMap>>(true, results);
+    }
+
+    private Tuple<bool, HallwayStairMap> IsVerticalOpening(Vector3Int pos, Vector3Int direction, bool positive, int YDifference)
+    {
+        if (YDifference != -1 && YDifference != 1)
+            throw new NotSupportedException("Must be between -1 or 1.");
+
+        if (direction.x != 1 && direction.z != 1)
+            throw new NotSupportedException("X or Z must be supplied.");
+
+        Cell t1, t2, b1, b2, start, end;
+
+        int x = positive ? 4 : -4;
+        int y = YDifference * 4;
+        int z = positive ? -4 : 4;
+
+        // Stairs require 4 cells.
+        if (direction.x == 1)
+        {
+            // Left - Right (Top)
+            t1 = this.GetBestCell(pos);
+            t2 = this.GetBestCell(pos + new Vector3Int(x, 0, 0));
+
+            // Left - Right (Bottom)
+            b1 = this.GetBestCell(pos + new Vector3Int(0, y, 0));
+            b2 = this.GetBestCell(pos + new Vector3Int(x, y, 0));
+
+            // Assign locations.
+            start = this.GetBestCell(b1.Position + new Vector3Int(-x, 4, 0));
+            end = this.GetBestCell(pos + new Vector3Int((x*2), y, 0));
+        }
+        else // We're doing Z.
+        {
+            // Left - Right (Top)
+            t1 = this.GetBestCell(pos);
+            t2 = this.GetBestCell(pos + new Vector3Int(0, 0, z));
+
+            // Left - Right (Bottom)
+            b1 = this.GetBestCell(pos + new Vector3Int(0, y, 0));
+            b2 = this.GetBestCell(pos + new Vector3Int(0, y, z));
+
+            // Assign locations.
+            start = this.GetBestCell(b1.Position + new Vector3Int(0, 4, -z));
+            end = this.GetBestCell(pos + new Vector3Int(0, y, (z*2)));
+        }
+
+        // Must be empty.
+        if (t1.Type != CellType.None
+            || t2.Type != CellType.None 
+            || b1.Type != CellType.None
+            || b2.Type != CellType.None)
+        {
+            return new Tuple<bool, HallwayStairMap>(false, null);
+        }
+
+        var newMap = new HallwayStairMap(b1.Position, b2.Position, t1.Position, t2.Position);
+        newMap.Entrance = start.Position;
+        newMap.Exit = end.Position;
+
+        return new Tuple<bool, HallwayStairMap>(true, newMap);
+    }
+
+
 
     /// <summary>
     /// Create cell instances along a path from one direction to another along the Z axis.
@@ -384,17 +720,22 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <param name="A"></param>
     /// <param name="B"></param>
     /// <returns></returns>
-    private Vector3Int CreatePathBetweenCellsX(Vector3Int curr, Vector3Int A, Vector3Int B)
+    private Vector3Int CreatePathBetweenCellsX(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
     {
         // Determine if we're going up or down.
-        bool positive = DetermineIfPositiveOrNegative(curr.x, B.x);
+        bool positive = IsPositiveDirection(curr.x, B.x);
 
         while (positive && curr.x - B.x < 0 || !positive && curr.x - B.x > 0)
         {
-            if (positive)
-                curr.x += 4;
-            else
-                curr.x -= 4;
+            curr.x += positive ? 4 : -4;
+
+            // Check if this is the start position of a stairway. If so, adjust our position to the end.
+            var stairway = request.FirstOrDefault(r => r.TopStair == curr);
+            if (stairway != null)
+            {
+                curr.y = stairway.BottomStair.y;
+                continue;
+            }
 
             this.CreateMap(curr, false);
         }
@@ -409,17 +750,22 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <param name="A"></param>
     /// <param name="B"></param>
     /// <returns></returns>
-    private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B)
+    private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
     {
         // Determine if we're going up or down.
-        bool positive = DetermineIfPositiveOrNegative(curr.z, B.z);
+        bool positive = IsPositiveDirection(curr.z, B.z);
 
         while (positive && curr.z - B.z < 0 || !positive && curr.z - B.z > 0)
-        {
-            if (positive)
-                curr.z += 4;
-            else
-                curr.z -= 4;
+        {            
+            curr.z += positive ? 4 : -4;
+
+            // Check if this is the start position of a stairway. If so, adjust our position to the end.
+            var stairway = request.FirstOrDefault(r => r.TopStair == curr);
+            if (stairway != null)
+            {
+                curr.y = stairway.BottomStair.y;
+                continue;
+            }
 
             this.CreateMap(curr, false);
         }
@@ -446,6 +792,20 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         }
 
         return neighbors;
+    }
+
+    /// <summary>
+    /// Get the best cell based on location. Depending from the current premapped grid,
+    /// or the global maze grid.
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <returns></returns>
+    private Cell GetBestCell(Vector3Int pos) 
+    {
+        Cell global = this.Maze.Grid[pos];
+        Cell local = this.MapGrid[pos];
+
+        return global.Type == CellType.None ? local : global;
     }
 
     /// <summary>
@@ -526,7 +886,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         newMap.DoorPair = pair;
 
         // Set the value.
-        this.MapGrid.Add(pos, CellType.Hallway);
+        this.MapGrid.Add(pos, CellType.Hallway, "CreateMap");
         this.PreMappedCells.Add(newMap);
 
         return newMap;
@@ -534,8 +894,15 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
     private bool RemoveMap(HallwayMap map)
     {
-        this.MapGrid.Remove(map.Position);
-        this.PreMappedCells.Remove(map);
+        bool mapGrid = this.MapGrid.Remove(map.Position);
+        bool premapped = this.PreMappedCells.Remove(map);
+
+        if (!mapGrid)
+            throw new InvalidOperationException("Cell does not exist in map.");
+
+        if (!premapped)
+            throw new InvalidOperationException("Cell does not exist in premap.");
+
         return true;
     }
 
@@ -560,14 +927,14 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     }
 
     /// <summary>
-    /// Returns whether we need to go positive or negative.
+    /// Determines if moving from point a to point b is in a positive direction.
     /// </summary>
-    /// <param name="a"></param>
-    /// <param name="b"></param>
-    /// <returns></returns>
-    private bool DetermineIfPositiveOrNegative(float a, float b)
+    /// <param name="a">Starting point</param>
+    /// <param name="b">Ending point</param>
+    /// <returns>True if moving in a positive direction, otherwise false for negative</returns>
+    private bool IsPositiveDirection(float a, float b)
     {
-        return (a - b < 0);
+        return (b > a);
     }
 
     /// <summary>
