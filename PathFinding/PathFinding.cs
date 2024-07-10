@@ -34,7 +34,7 @@ public class PathFinding : MonoBehaviour
             throw new ArgumentException("Start or End leads to an empty cell. Cannot pathfind.");
 
         // Set the buffer distance. (Distance / CellSize) * CellSize
-        int bufferTileDistance = ((CalculateDistance(destTilePos, starTilePos) / 4) * 4) + 8;
+        int bufferTileDistance = ((DistanceHelper.CalculateDistance(destTilePos, starTilePos) / 4) * 4) + 8;
 
         // Are we trying to path find in the same room? If so the logic is not as complicated
         // as trying to travel across rooms.
@@ -126,14 +126,12 @@ public class PathFinding : MonoBehaviour
         if (curr.Position == dest.Position)
             throw new ArgumentException("Start and end are the same position.");
 
-        List<Cell> neighbors = controller.Grid.DirectNeighbors(curr);
-
         Cell closestCell = null;
         int closestDistance = Int32.MaxValue;
 
-        foreach (Cell next in neighbors)
+        foreach (Cell next in controller.Grid.Neighbors(curr))
         {
-            int distance = CalculateDistance(next.Position, dest.Position); 
+            int distance = DistanceHelper.CalculateDistance(next.Position, dest.Position); 
 
             bool BothAreHallways = (next.Type == CellType.Hallway && curr.Type == CellType.Hallway);
             bool BothAreDoors = (next.Type == CellType.Door && curr.Type == CellType.Door) || BothAreHallways;
@@ -289,22 +287,6 @@ public class PathFinding : MonoBehaviour
     }
 
     /// <summary>
-    /// Simple function to help with calculating the distance between two vectors.
-    /// </summary>
-    /// <param name="C1"></param>
-    /// <param name="C2"></param>
-    /// <returns></returns>
-    private static int CalculateDistance(Vector3Int C1, Vector3Int C2)
-    {
-        // Calculate the absolute difference in x, y, and z coordinates (Manhattan distance)
-        int x = Mathf.Abs(C1.x - C2.x);
-        int y = Mathf.Abs(C1.y - C2.y);
-        int z = Mathf.Abs(C1.z - C2.z);
-
-        return x + y + z;
-    }
-
-    /// <summary>
     /// Organize a <see cref="UniqueStack{T}"/>. This helps with the edge cases when working with pathing across rooms, sometimes the stack
     /// needs to be reversed one way or the other this will prioritize putting the elements back in order.
     /// </summary>
@@ -341,8 +323,7 @@ public class PathFinding : MonoBehaviour
             }
 
             // Get neighbors using the Neighbors function
-            List<Cell> neighbors = controller.Grid.DirectNeighbors(current, 1);
-            foreach (var neighbor in neighbors)
+            foreach (var neighbor in controller.Grid.Neighbors(current, 1))
             {
                 if (neighbor != null && parent.ContainsKey(neighbor) && parent[neighbor] == null)
                 {
