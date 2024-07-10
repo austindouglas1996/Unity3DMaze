@@ -71,41 +71,13 @@ public class MazeGrid
     }
 
     /// <summary>
-    /// Returns the neighbor in the direction of a cell by a certain distance. Distance is multiplication of tile size.
+    /// Retrieve a <see cref="Cell"/> at a certain position.
     /// </summary>
-    /// <param name="cell"></param>
-    /// <param name="direction"></param>
+    /// <param name="pos"></param>
     /// <returns></returns>
-    public Cell Neighbor(Cell cell, SpatialOrientation direction, int distance = 1)
+    public Cell Get(Vector3Int pos)
     {
-        switch (direction)
-        {
-            case SpatialOrientation.Up:
-                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z];
-
-            case SpatialOrientation.Right:
-                return this[cell.Position.x, cell.Position.y, cell.Position.z - (4 * distance)];
-
-            case SpatialOrientation.Down:
-                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z];
-
-            case SpatialOrientation.Left:
-                return this[cell.Position.x, cell.Position.y, cell.Position.z + (4 * distance)];
-
-            case SpatialOrientation.UpRight:
-                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
-
-            case SpatialOrientation.UpLeft:
-                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
-
-            case SpatialOrientation.DownRight:
-                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
-
-            case SpatialOrientation.DownLeft:
-                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
-            default:
-                throw new System.NotSupportedException();
-        }
+        return this[pos];
     }
 
     /// <summary>
@@ -217,6 +189,44 @@ public class MazeGrid
     public void ClearAll()
     {
         this.Cells.Clear();
+    }
+
+    /// <summary>
+    /// Returns the neighbor in the direction of a cell by a certain distance. Distance is multiplication of tile size.
+    /// </summary>
+    /// <param name="cell"></param>
+    /// <param name="direction"></param>
+    /// <returns></returns>
+    public Cell Neighbor(Cell cell, SpatialOrientation direction, int distance = 1)
+    {
+        switch (direction)
+        {
+            case SpatialOrientation.Up:
+                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z];
+
+            case SpatialOrientation.Right:
+                return this[cell.Position.x, cell.Position.y, cell.Position.z - (4 * distance)];
+
+            case SpatialOrientation.Down:
+                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z];
+
+            case SpatialOrientation.Left:
+                return this[cell.Position.x, cell.Position.y, cell.Position.z + (4 * distance)];
+
+            case SpatialOrientation.UpRight:
+                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
+
+            case SpatialOrientation.UpLeft:
+                return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
+
+            case SpatialOrientation.DownRight:
+                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
+
+            case SpatialOrientation.DownLeft:
+                return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
+            default:
+                throw new System.NotSupportedException();
+        }
     }
 
     /// <summary>
