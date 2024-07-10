@@ -261,6 +261,7 @@ public class MazeGrid
             this.Cells.Add(cell);
         }
 
+        cell.Position = pos;
         cell.Type = type;
         cell.Room = room;
 

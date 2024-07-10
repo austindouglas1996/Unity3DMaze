@@ -212,7 +212,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         this.MapPathing();
 
         // Final touchups before deploying.
-        //this.MapDetails();
+        this.MapDetails();
 
         // Finally, commit our changes to the Maze.
         await this.CommitCells();

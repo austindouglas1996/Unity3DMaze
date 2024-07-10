@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Net;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -9,18 +10,18 @@ using UnityEngine.Rendering;
 [RequireComponent (typeof(PathFinding))]
 public class MazeController : MonoBehaviour
 {
-    public GameObject debugCube;
-    public GameObject debugCube2;
-    public GameObject debugCube3;
-    public GameObject debugCube4;
-    public GameObject debugCube5;
-    public GameObject debugCubePath;
-
     /// <summary>
     /// Has the maze finished generating?
     /// </summary>
     [HideInInspector]
     public bool GenerateFinished = false;
+
+    [Header("Generation Options")]
+    [Tooltip("Generate rooms throughout the maze.")]
+    public bool GenerateRooms = true;
+
+    [Tooltip("Generate hallways. NOTE: This depends on Room generation.")]
+    public bool GenerateHalls = true;
 
     [Header("Debug")]
     [Tooltip("Render the pathing cells for the maze grid.")]
@@ -30,6 +31,7 @@ public class MazeController : MonoBehaviour
     [Tooltip("Render the door position cells used for pathing.")]
     public bool ShowDoorPathingCells = false;
     [SerializeField] private GameObject DoorPathCube;
+
 
     /// <summary>
     /// Container for path cells.
@@ -86,10 +88,14 @@ public class MazeController : MonoBehaviour
         this.Items = this.GetComponent<MazeItemGenerator>();
         this.PathFinder = this.GetComponent<PathFinding>();
 
-        await this.Rooms.Generate();
-        await this.Hallways.Generate();
+        if (GenerateRooms)
+            await this.Rooms.Generate();
+
+        if (GenerateRooms && GenerateHalls)
+            await this.Hallways.Generate();
 
         await Task.Delay(10);
+
         await this.Items.Generate();
         await CleanupDoors();
 
@@ -176,6 +182,8 @@ public class MazeController : MonoBehaviour
 
     private void DisplayPathingCells(bool show)
     {
+        if (PathContainer == null) return;
+
         foreach (var meshRenderer in PathContainer.GetComponentsInChildren<MeshRenderer>())
         {
             meshRenderer.enabled = show;
@@ -184,6 +192,8 @@ public class MazeController : MonoBehaviour
 
     private void DisplayDoorCells(bool show)
     {
+        if (DoorPathContainer == null) return;
+
         foreach (var meshRenderer in DoorPathContainer.GetComponentsInChildren<MeshRenderer>())
         {
             meshRenderer.enabled = show;

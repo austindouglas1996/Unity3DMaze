@@ -197,7 +197,8 @@ public class HallwayMono : RoomMono
         Transform go = Get(direction);
         if (go == null)
         {
-            throw new System.ArgumentNullException("Unable to find fixture at direction " + direction);
+            return;
+           // throw new System.ArgumentNullException("Unable to find fixture at direction " + direction);
         }
 
         RoomFixtureMono piece = go.GetComponent<RoomFixtureMono>();
@@ -220,6 +221,7 @@ public class HallwayMono : RoomMono
         Transform obj = Get(direction);
         if (obj != null)
         {
+            obj.name = "Deleted";
             obj.gameObject.Destroy();
         }
     }
