@@ -150,6 +150,11 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private MazeController Maze;
 
     /// <summary>
+    /// Grid that keeps track of maze cells.
+    /// </summary>
+    private MazeGrid Grid;
+
+    /// <summary>
     /// Returns whether <see cref="Generate"/> has been called.
     /// </summary>
     public bool GenerateCalled { get; private set; }
@@ -171,9 +176,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// </summary>
     private bool hallwayGenerated = false;
 
-    private MazeGrid MapGrid = new MazeGrid();
     private List<HallwayMono> HallwayCells = new List<HallwayMono>();
-
     private List<HallwayMap> PreMappedCells = new List<HallwayMap>();
     private List<HallwayStairMap> PreMappedStairCells = new List<HallwayStairMap>();
 
@@ -183,6 +186,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private void Start()
     {
         Maze = this.GetComponent<MazeController>();
+        this.Grid = Maze.Grid;
     }
 
     /// <summary>
@@ -230,7 +234,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <returns></returns>
     public async Task ResetGenerator()
     {
-        this.MapGrid.Clear();
         this.HallwayCells.Clear();
         this.PreMappedCells.Clear();
         this.PreMappedStairCells.Clear();
@@ -337,7 +340,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             for (int i = 0; i < distance; i++)
             {
                 // Grab neighbors that are empty. Continue is there is none.
-                List<Cell> neighbors = GetBestNeighbors(cell.Position,1).Where(r => r.Type == CellType.None).ToList();
+                List<Cell> neighbors = this.Grid.Neighbors(cell.Position,1).Where(r => r.Type == CellType.None).ToList();
                 if (neighbors.Count() == 0) continue;
 
                 Cell chosenCell = neighbors.Random();
@@ -357,20 +360,20 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         // Check our stairs and make sure they are valid.
         foreach (var stairMap in this.PreMappedStairCells)
         {
-            Cell entranceCell = this.GetBestCell(stairMap.Entrance);
-            Cell exitCell = this.GetBestCell(stairMap.Exit);
+            Cell entranceCell = this.Grid[stairMap.Entrance];
+            Cell exitCell = this.Grid[stairMap.Exit];
 
             // No double hallways.
             if (exitCell.Type == CellType.Stairway || entranceCell.Type == CellType.Stairway)
             {
-                stairMap.RemoveFromGrid(this.MapGrid);
+                stairMap.RemoveFromGrid(this.Grid);
                 removeStairs.Add(stairMap);
                 continue;
             }
 
             if (entranceCell.Type == CellType.None || exitCell.Type == CellType.None)
             {
-                stairMap.RemoveFromGrid(this.MapGrid);
+                stairMap.RemoveFromGrid(this.Grid);
                 removeStairs.Add(stairMap);
                 continue;
             }
@@ -391,7 +394,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
         foreach (var map in PreMappedCells.ToList())
         {
-            CellNeighborGroup neighbors = GetBestNeighbors(map.Position, 1);
+            CellNeighborGroup neighbors = this.Grid.Neighbors(map.Position, 1);
 
             if (neighbors.Up.Type != CellType.None 
                 && neighbors.Left.Type != CellType.None
@@ -496,15 +499,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     {
         await CommitStairCells();
         await CommitHallways();
-
-        // Take our temporary grid and put into the maze grid.
-        foreach (var cell in MapGrid.Cells)
-        {
-            if (cell.Room == null)
-                Debug.LogWarning("A cell is added without a room attached.");
-
-            Cell newCell = this.Maze.Grid.Add(cell.Position, CellType.Hallway, cell.Room);
-        }
     }
 
     /// <summary>
@@ -562,7 +556,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 newHall.name = map.NameOverride;
 
             // Set the cell room.
-            this.MapGrid[map.Position].Room = newHall;
+            this.Grid[map.Position].Room = newHall;
 
             // Generate.
             await newHall.Generate(map);
@@ -616,7 +610,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                     this.PreMappedStairCells.Add(stairway);
 
                     // Add to grid.
-                    stairway.AddToGrid(this.MapGrid);
+                    stairway.AddToGrid(this.Grid);
                 }
 
             }
@@ -829,30 +823,30 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         if (direction.x == 1)
         {
             // Left - Right (Top)
-            t1 = this.GetBestCell(pos);
-            t2 = this.GetBestCell(pos + new Vector3Int(x, 0, 0));
+            t1 = this.Grid[pos];
+            t2 = this.Grid[pos + new Vector3Int(x, 0, 0)];
 
             // Left - Right (Bottom)
-            b1 = this.GetBestCell(pos + new Vector3Int(0, y, 0));
-            b2 = this.GetBestCell(pos + new Vector3Int(x, y, 0));
+            b1 = this.Grid[pos + new Vector3Int(0, y, 0)];
+            b2 = this.Grid[pos + new Vector3Int(x, y, 0)];
 
             // Assign locations.
-            start = this.GetBestCell(b1.Position + new Vector3Int(-x, 4, 0));
-            end = this.GetBestCell(pos + new Vector3Int((x * 2), y, 0));
+            start = this.Grid[b1.Position + new Vector3Int(-x, 4, 0)];
+            end = this.Grid[pos + new Vector3Int((x * 2), y, 0)];
         }
         else // We're doing Z.
         {
             // Left - Right (Top)
-            t1 = this.GetBestCell(pos);
-            t2 = this.GetBestCell(pos + new Vector3Int(0, 0, z));
+            t1 = this.Grid[pos];
+            t2 = this.Grid[pos + new Vector3Int(0, 0, z)];
 
             // Left - Right (Bottom)
-            b1 = this.GetBestCell(pos + new Vector3Int(0, y, 0));
-            b2 = this.GetBestCell(pos + new Vector3Int(0, y, z));
+            b1 = this.Grid[pos + new Vector3Int(0, y, 0)];
+            b2 = this.Grid[pos + new Vector3Int(0, y, z)];
 
             // Assign locations.
-            start = this.GetBestCell(b1.Position + new Vector3Int(0, 4, -z));
-            end = this.GetBestCell(pos + new Vector3Int(0, y, (z * 2)));
+            start = this.Grid[b1.Position + new Vector3Int(0, 4, -z)];
+            end = this.Grid[pos + new Vector3Int(0, y, (z * 2))];
         }
 
         // Must be empty.
@@ -882,79 +876,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     }
 
     /// <summary>
-    /// Retrieves a list of bridge candidates. Two hallways that are
-    /// two cells from one another with a gap.
-    /// </summary>
-    /// <param name="pos"></param>
-    /// <returns></returns>
-    private List<Cell> GetNeighborBridgeCandidates(Vector3Int pos)
-    {
-        List<Cell> neighbors = new List<Cell>();
-
-        foreach (Cell ncell in GetNeighborHallways(this.MapGrid, pos, 1))
-        {
-            foreach (Cell ncell1 in GetNeighborHallways(this.MapGrid, pos, 1))
-            {
-                neighbors.Add(ncell1);
-            }
-        }
-
-        return neighbors;
-    }
-
-    /// <summary>
-    /// Get the best cell based on location. Depending from the current premapped grid,
-    /// or the global maze grid.
-    /// </summary>
-    /// <param name="pos"></param>
-    /// <returns></returns>
-    private Cell GetBestCell(Vector3Int pos) 
-    {
-        Cell global = this.Maze.Grid[pos];
-        Cell local = this.MapGrid[pos];
-
-        return global.Type == CellType.None ? local : global;
-    }
-
-    /// <summary>
-    /// Look through the <see cref="MapGrid"/> and <see cref="Maze.Grid"/> to find the most suitable
-    /// neighbor. This is needed when deteriming for hallway cells if they are next to a room.
-    /// </summary>
-    /// <param name="pos"></param>
-    /// <param name="distance"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    private List<Cell> GetBestNeighbors(Vector3Int pos, int distance)
-    {
-        List<Cell> localNeighbors = this.MapGrid.Neighbors(this.MapGrid[pos], distance);
-        List<Cell> globalNeighbors = this.Maze.Grid.Neighbors(this.Maze.Grid[pos], distance);
-        List<Cell> cells = new List<Cell>();
-
-        if (localNeighbors.Count != globalNeighbors.Count)
-            throw new ArgumentException("Count must be the same");
-
-        for (int i = 0; i < localNeighbors.Count; i++)
-        {
-            cells.Add(globalNeighbors[i].Type == CellType.None ? localNeighbors[i] : globalNeighbors[i]);
-        }
-
-        return cells;
-    }
-
-    /// <summary>
-    /// Retrieves a list of neighbor cells that are also hallways.
-    /// </summary>
-    /// <param name="grid"></param>
-    /// <param name="pos"></param>
-    /// <param name="distance"></param>
-    /// <returns></returns>
-    private List<Cell> GetNeighborHallways(MazeGrid grid, Vector3Int pos, int distance = 1)
-    {
-        List<Cell> neighbors = grid.Neighbors(grid[pos], distance);
-        return neighbors.Where(r => r.Type == CellType.Hallway).ToList();
-    }
-
-    /// <summary>
     /// Attemps to create a new <see cref="HallwayMap"/> instance. Performs several checks
     /// to see if the cell is taken in the <see cref="Maze.Grid"/>, or <see cref="MapGrid"/>.
     /// </summary>
@@ -972,7 +893,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         newMap.DoorPair = pair;
 
         // Set the value.
-        this.MapGrid.Add(pos, CellType.Hallway);
+        this.Grid.Add(pos, CellType.Hallway);
         this.PreMappedCells.Add(newMap);
 
         return newMap;
@@ -980,7 +901,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
     private bool RemoveMap(HallwayMap map)
     {
-        bool mapGrid = this.MapGrid.Remove(map.Position);
+        bool mapGrid = this.Grid.Remove(map.Position);
         bool premapped = this.PreMappedCells.Remove(map);
 
         if (!mapGrid)
@@ -1000,7 +921,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private bool CheckIsValid(Vector3Int position)
     {
         var mazeCell = Maze.Grid[position];
-        var localCell = this.MapGrid[position];
+        var localCell = this.Grid[position];
         var localMap = this.PreMappedCells.Where(r => r.Position == position).ToList();
 
         // Maze already has a cell here.

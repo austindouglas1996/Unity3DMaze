@@ -118,10 +118,21 @@ public class MazeGrid
     /// <summary>
     /// Returns an instance of <see cref="CellNeighborGroup"/> that includes neighbor cells.
     /// </summary>
+    /// <param name="cellPos"></param>
+    /// <param name="distance"></param>
+    /// <returns></returns>
+    public CellNeighborGroup Neighbors(Vector3Int cellPos, int distance = 1)
+    {
+        return this.Neighbors(this[cellPos], distance);
+    }
+
+    /// <summary>
+    /// Returns an instance of <see cref="CellNeighborGroup"/> that includes neighbor cells.
+    /// </summary>
     /// <param name="cell"></param>
     /// <param name="distance"></param>
     /// <returns></returns>
-    public CellNeighborGroup Neighbors(Cell cell, int distance)
+    public CellNeighborGroup Neighbors(Cell cell, int distance = 1)
     {
         return new CellNeighborGroup(this, cell, distance);
     }
