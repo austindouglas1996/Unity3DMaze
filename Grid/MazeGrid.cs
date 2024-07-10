@@ -15,14 +15,6 @@ using static UnityEditor.PlayerSettings;
 public class MazeGrid
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="MazeGrid"/> class.
-    /// </summary>
-    /// <param name="mazeGenerator"></param>
-    public MazeGrid()
-    {
-    }
-
-    /// <summary>
     /// Gets a list of filled cells.
     /// </summary>
     public List<Cell> Cells = new List<Cell>();
@@ -117,6 +109,117 @@ public class MazeGrid
     }
 
     /// <summary>
+    /// Sets a cells position with the type and associated room if any.
+    /// </summary>
+    /// <param name="pos">Position of the cell.</param>
+    /// <param name="type">The type of item contained in this cell.</param>
+    /// <param name="room">The associated room if any.</param>
+    /// <returns>The newly created cell, or modified cell if the cell already exists.</returns>
+    public Cell Set(Vector3Int pos, CellType type, RoomMono room = null)
+    {
+        // Check if the cell already exists.
+        Cell cell = this.Cells.FirstOrDefault(cell => cell.Position == pos);
+
+        // Cell does not exist, create it.
+        if (cell == null)
+        {
+            cell = new Cell();
+            this.Cells.Add(cell);
+        }
+
+        // Modify properties.
+        cell.Position = pos;
+        cell.Type = type;
+        cell.Room = room;
+
+        return cell;
+    }
+
+    /// <summary>
+    /// Set a collection of cells type based on a <see cref="Bounds"/> object.
+    /// </summary>
+    /// <param name="bounds">The size of the </param>
+    /// <param name="position"></param>
+    /// <param name="type"></param>
+    public List<Cell> SetBounds(Bounds bounds, Vector3Int position, CellType type)
+    {
+        var cells = this.GetBoundsCells(bounds, position);
+        foreach (Cell cell in cells)
+        {
+            cell.Type = type;
+        }
+
+        return cells;
+    }
+
+    /// <summary>
+    /// Loops through a <see cref="RoomMono"/> children to find items on the <see cref="Floor"/> layermask.
+    /// Adding them as a grid cell. This function is good for 1-story rooms. If you're trying to map a 
+    /// multi-story room <see cref="SetBounds"/>.
+    /// </summary>
+    /// <param name="room">The room we should set the bounds for.</param>
+    /// <param name="type">The type of cell contained. By default set to Room.</param>
+    public List<Cell> SetRoomCells(RoomMono room, CellType type = CellType.Room)
+    {
+        if (room == null)
+            throw new System.ArgumentException("Room is null.");
+
+        List<Cell> newBounds = new List<Cell>();
+
+        // Get all floor objects within the room
+        Transform[] floorObjects = room.GetComponentsInChildren<Transform>(true);
+        foreach (Transform floorObject in floorObjects)
+        {
+            if (floorObject.gameObject.layer == LayerMask.NameToLayer("Floor"))
+            {
+                Vector3Int currentPosition = floorObject.position.RoundToInt();
+                Cell newCell = this.Set(currentPosition + new Vector3Int(0, 2, 0), type, room);
+                newBounds.Add(newCell);
+            }
+        }
+
+        if (newBounds.Count() == 0)
+            throw new ArgumentException("Failed to find floor objects.");
+
+        // Set the room bounds.
+        room.GridBounds = newBounds;
+
+        return newBounds;
+    }
+
+    /// <summary>
+    /// Clear a <see cref="Cell"/> information. Resetting back to default.
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <returns></returns>
+    public bool Clear(Vector3Int pos)
+    {
+        Cell cell = this[pos];
+        return this.Cells.Remove(cell);
+    }
+
+    /// <summary>
+    /// Remove a set of bounds from the grid.
+    /// </summary>
+    /// <param name="bounds"></param>
+    /// <param name="position"></param>
+    public void ClearBounds(Bounds bounds, Vector3Int position)
+    {
+        foreach (Cell cell in GetBoundsCells(bounds, position))
+        {
+            this.Clear(cell.Position);
+        }
+    }
+
+    /// <summary>
+    /// Clear all cells based in this grid back to default settings.
+    /// </summary>
+    public void ClearAll()
+    {
+        this.Cells.Clear();
+    }
+
+    /// <summary>
     /// Returns an instance of <see cref="CellNeighborGroup"/> that includes neighbor cells.
     /// </summary>
     /// <param name="cellPos"></param>
@@ -187,82 +290,15 @@ public class MazeGrid
         return cellPos.Type == CellType.None;
     }
 
-
-
-
-
-    public Cell Add(Vector3Int pos, CellType type, RoomMono room = null)
-    {
-        Cell cell = this.Cells.FirstOrDefault(cell => cell.Position == pos);
-
-        if (cell == null)
-        {
-            cell = new Cell(); 
-            this.Cells.Add(cell);
-        }
-
-        cell.Position = pos;
-        cell.Type = type;
-        cell.Room = room;
-
-        return cell;
-    }
-
-    public void Clear()
-    {
-        this.Cells.Clear();
-    }
-
-    public bool Remove(Vector3Int pos)
-    {
-        Cell cell = this[pos];
-        return this.Cells.Remove(cell);
-    }
-
-
     /// <summary>
-    /// Add a new room bounds to the grid. The only bounds that will be added is those that contain the name "Floor".
+    /// Retrieve the appropiate cells from a <see cref="Bounds"/> object.
     /// </summary>
     /// <param name="bounds"></param>
     /// <param name="position"></param>
-    /// <param name="type"></param>
-    public List<Cell> AddBounds(RoomMono room, CellType type)
+    /// <returns></returns>
+    private List<Cell> GetBoundsCells(Bounds bounds, Vector3Int position)
     {
-        if (room == null)
-            throw new System.ArgumentException("Room is null.");
-
-        List<Cell> newBounds = new List<Cell>();
-
-        // Get all floor objects within the room
-        Transform[] floorObjects = room.GetComponentsInChildren<Transform>(true);
-        foreach (Transform floorObject in floorObjects)
-        {
-            if (floorObject.gameObject.layer == LayerMask.NameToLayer("Floor"))
-            {
-                Vector3Int currentPosition = floorObject.position.RoundToInt();
-                Cell newCell = this.Add(currentPosition + new Vector3Int(0, 2, 0), type, room);
-                newBounds.Add(newCell);
-            }
-        }
-
-        if (newBounds.Count() == 0)
-            throw new ArgumentException("Failed to find floor objects.");
-
-        // Set the room bounds.
-        room.GridBounds = newBounds;
-
-        return newBounds;
-    }
-
-    /// <summary>
-    /// Add a new <see cref="Bounds"/> to the world grid.
-    /// </summary>
-    /// <param name="bounds">The size of the </param>
-    /// <param name="position"></param>
-    /// <param name="type"></param>
-    public List<Cell> AddBounds(Bounds bounds, Vector3Int position, CellType type)
-    {
-        List<Cell> newBounds = new List<Cell>();
+        List<Cell> boundsList = new List<Cell>();
 
         // Calculate the minimum and maximum corners of the bounds in world space
         Vector3Int minCorner = (bounds.center - bounds.extents).RoundToInt();
@@ -270,45 +306,10 @@ public class MazeGrid
 
         // Loop through X,Y,Z. Each tile is 4f. Adjust the step size accordingly
         for (int x = minCorner.x + 2; x < maxCorner.x; x += 4)
-        {
             for (int y = minCorner.y + 2; y < maxCorner.y; y += 4)
-            {
                 for (int z = minCorner.z + 2; z < maxCorner.z; z += 4)
-                {
-                    Vector3Int currentPosition = new Vector3Int(x, y, z);
-                    Cell newCell = new Cell() { Type = type, Position = currentPosition };
+                    boundsList.Add(this[new Vector3Int(x, y, z)]);
 
-                    Cells.Add(newCell);
-                    newBounds.Add(newCell);
-                }
-            }
-        }
-
-        return newBounds;
-    }
-
-    /// <summary>
-    /// Remove a set of bounds from the grid.
-    /// </summary>
-    /// <param name="bounds"></param>
-    /// <param name="position"></param>
-    public void RemoveBounds(Bounds bounds, Vector3Int position)
-    {
-        // Calculate the minimum and maximum corners of the bounds in world space
-        Vector3Int minCorner = (bounds.center - bounds.extents).RoundToInt();
-        Vector3Int maxCorner = (bounds.center + bounds.extents).RoundToInt();
-
-        // Iterate through all positions within the bounds
-        for (int x = minCorner.x; x < maxCorner.x; x++)
-        {
-            for (int y = minCorner.y; y < maxCorner.y; y++)
-            {
-                for (int z = minCorner.z; z < maxCorner.z; z++)
-                {
-                    Vector3Int currentPosition = new Vector3Int(Mathf.RoundToInt(x) + 2, Mathf.RoundToInt(y) + 2, Mathf.RoundToInt(z) + 2);
-                    Cells.Remove(Cells.FirstOrDefault(r => r.Position == currentPosition));
-                }
-            }
-        }
+        return boundsList;
     }
 }

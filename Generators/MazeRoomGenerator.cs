@@ -111,7 +111,7 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
 
         foreach (RoomMono room in Generated)
         {
-            this.Maze.Grid.AddBounds(room, CellType.Room);
+            this.Maze.Grid.SetRoomCells(room, CellType.Room);
         }
 
         this.GenerateFinished = true;
@@ -348,7 +348,7 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         Generated.Remove(roomA);
 
         // Remove bounds.
-        this.Maze.Grid.RemoveBounds(roomA.Bounds, roomA.transform.position.RoundToInt());
+        this.Maze.Grid.ClearBounds(roomA.Bounds, roomA.transform.position.RoundToInt());
 
         // Destroy.
         DestroyImmediate(roomA.gameObject);
@@ -391,13 +391,13 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
 
         if (room.MultiFloorRoom)
         {
-            cells = this.Maze.Grid.AddBounds(room.transform.BoundingBox(), room.transform.position.RoundToInt(), CellType.Room);
+            cells = this.Maze.Grid.SetBounds(room.transform.BoundingBox(), room.transform.position.RoundToInt(), CellType.Room);
             foreach (Cell cell in cells)
                 cell.Room = room;
         }
         else
         {
-            this.Maze.Grid.AddBounds(room, CellType.Room);
+            this.Maze.Grid.SetRoomCells(room, CellType.Room);
         }
 
         return cells;

@@ -140,7 +140,7 @@ public class MazeController : MonoBehaviour
         await this.Hallways.ResetGenerator();
         await this.Items.ResetGenerator();
 
-        this.Grid.Clear();
+        this.Grid.ClearAll();
         this.DoorRegistry.Clear();
 
         // Destroy path container.

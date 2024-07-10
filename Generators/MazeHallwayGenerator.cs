@@ -75,10 +75,10 @@ public class HallwayStairMap
     /// <param name="grid"></param>
     public void AddToGrid(MazeGrid grid)
     {
-        grid.Add(TopStair, CellType.Stairway);
-        grid.Add(BottomStair, CellType.Stairway);
-        grid.Add(BufferL, CellType.Stairway);
-        grid.Add(BufferR, CellType.Stairway);
+        grid.Set(TopStair, CellType.Stairway);
+        grid.Set(BottomStair, CellType.Stairway);
+        grid.Set(BufferL, CellType.Stairway);
+        grid.Set(BufferR, CellType.Stairway);
     }
 
     /// <summary>
@@ -87,10 +87,10 @@ public class HallwayStairMap
     /// <param name="grid"></param>
     public void RemoveFromGrid(MazeGrid grid)
     {
-        grid.Remove(TopStair);
-        grid.Remove(BottomStair);
-        grid.Remove(BufferL);
-        grid.Remove(BufferR);
+        grid.Clear(TopStair);
+        grid.Clear(BottomStair);
+        grid.Clear(BufferL);
+        grid.Clear(BufferR);
     }
 
     /// <summary>
@@ -893,7 +893,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         newMap.DoorPair = pair;
 
         // Set the value.
-        this.Grid.Add(pos, CellType.Hallway);
+        this.Grid.Set(pos, CellType.Hallway);
         this.PreMappedCells.Add(newMap);
 
         return newMap;
@@ -901,7 +901,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
     private bool RemoveMap(HallwayMap map)
     {
-        bool mapGrid = this.Grid.Remove(map.Position);
+        bool mapGrid = this.Grid.Clear(map.Position);
         bool premapped = this.PreMappedCells.Remove(map);
 
         if (!mapGrid)
