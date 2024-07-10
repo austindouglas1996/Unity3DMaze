@@ -21,44 +21,6 @@ public class RoomMono : MonoBehaviour
     [SerializeField] public bool NoAutomaticPropGeneration = false;
 
     /// <summary>
-    /// Returns a random rotation between 0, 90 and 180 degrees.
-    /// </summary>
-    /// <returns></returns>
-    public static Quaternion GetRandomRotation()
-    {
-        int randomRotation = UnityEngine.Random.Range(0, 2);
-        switch (randomRotation)
-        {
-            case 0:
-                return Quaternion.Euler(0, 0, 0);
-            case 1:
-                return Quaternion.Euler(0, 90, 0);
-            case 2:
-                return Quaternion.Euler(0, 180, 0);
-            default:
-                return Quaternion.identity;
-        }
-    }
-
-    /// <summary>
-    /// Returns whether this <see cref="GameObject"/> contains with another <see cref="RoomMono"/> instance.
-    /// </summary>
-    /// <param name="roomA"></param>
-    /// <param name="roomB"></param>
-    /// <returns></returns>
-    public static bool CheckForContains(RoomMono roomA, Bounds roomBBounds, Vector3 roomBPos)
-    {
-        // Get the bounds of both objects and then apply a small offset.
-        Bounds boundsA = roomA.transform.Find("BoundingBox").GetComponent<Renderer>().bounds;
-
-        // Combine the bounds and positions to create more precise bounds
-        Bounds combinedBoundsA = new Bounds(roomA.transform.position, boundsA.size);
-        Bounds combinedBoundsB = new Bounds(roomBPos, roomBBounds.size);
-
-        return combinedBoundsA.Contains(combinedBoundsB.center);
-    }
-
-    /// <summary>
     /// Returns whether this <see cref="GameObject"/> contains with another <see cref="RoomMono"/> instance.
     /// </summary>
     /// <param name="roomA"></param>
@@ -96,86 +58,6 @@ public class RoomMono : MonoBehaviour
         // Combine the bounds and positions to create more precise bounds
         Bounds combinedBoundsA = new Bounds(roomA.transform.position, boundsA.size);
         Bounds combinedBoundsB = new Bounds(roomB.transform.position, boundsB.size);
-
-        // Check for intersections using the combined bounds
-        return combinedBoundsA.Intersects(combinedBoundsB);
-    }
-
-    /// <summary>
-    /// Returns whether this <see cref="GameObject"/> intersects with another <see cref="GameObject"/> class.
-    /// </summary>
-    /// <param name="roomA"></param>
-    /// <param name="roomB"></param>
-    /// <param name="offset"></param>
-    /// <returns></returns>
-    public static bool CheckForIntersection(RoomMono roomA, Bounds B, Vector3 BPos, float offset = 0.3f)
-    {
-        // Get the bounds of both objects and then apply a small offset.
-        Bounds boundsA = roomA.transform.Find("BoundingBox").GetComponent<Renderer>().bounds;
-
-        // Apply a small offset.
-        boundsA.extents -= Vector3.one * offset;
-
-        // Combine the bounds and positions to create more precise bounds
-        Bounds combinedBoundsA = new Bounds(roomA.transform.position, boundsA.size);
-        Bounds combinedBoundsB = new Bounds(BPos, B.size);
-
-        // Check for intersections using the combined bounds
-        return combinedBoundsA.Intersects(combinedBoundsB);
-    }
-
-    /// <summary>
-    /// Returns whether this <see cref="GameObject"/> intersects with another <see cref="GameObject"/> class.
-    /// </summary>
-    /// <param name="roomA"></param>
-    /// <param name="roomB"></param>
-    /// <param name="offset"></param>
-    /// <returns></returns>
-    public static bool CheckForIntersection(Bounds A, Bounds B, Vector3 APos, Vector3 BPos, float offset = 0.3f)
-    {
-        // Apply a small offset.
-        A.extents -= Vector3.one * offset;
-
-        // Combine the bounds and positions to create more precise bounds
-        Bounds combinedBoundsA = new Bounds(APos, A.size);
-        Bounds combinedBoundsB = new Bounds(BPos, B.size);
-
-        // Check for intersections using the combined bounds
-        return combinedBoundsA.Intersects(combinedBoundsB);
-    }
-
-    /// <summary>
-    /// Returns whether this <see cref="GameObject"/> intersects with another <see cref="GameObject"/> class.
-    /// </summary>
-    /// <param name="roomA"></param>
-    /// <param name="roomB"></param>
-    /// <param name="offset"></param>
-    /// <returns></returns>
-    public static bool CheckForIntersection(Vector3 APos, Vector3 BPos, Bounds A, Bounds B, float offset = 0.3f)
-    {
-        // Apply a small offset.
-        A.extents -= Vector3.one * offset;
-
-        // Combine the bounds and positions to create more precise bounds
-        Bounds combinedBoundsA = new Bounds(APos, A.size);
-        Bounds combinedBoundsB = new Bounds(BPos, B.size);
-
-        // Check for intersections using the combined bounds
-        return combinedBoundsA.Intersects(combinedBoundsB);
-    }
-
-    /// <summary>
-    /// Returns whether this <see cref="GameObject"/> intersects with another <see cref="GameObject"/> class.
-    /// </summary>
-    /// <param name="roomA"></param>
-    /// <param name="roomB"></param>
-    /// <param name="offset"></param>
-    /// <returns></returns>
-    public static bool CheckForIntersection(BoundsInt A, BoundsInt B)
-    {
-        // Combine the bounds and positions to create more precise bounds
-        Bounds combinedBoundsA = new Bounds(A.position, A.size);
-        Bounds combinedBoundsB = new Bounds(B.position, B.size);
 
         // Check for intersections using the combined bounds
         return combinedBoundsA.Intersects(combinedBoundsB);

@@ -34,7 +34,7 @@ public class PathFinding : MonoBehaviour
             throw new ArgumentException("Start or End leads to an empty cell. Cannot pathfind.");
 
         // Set the buffer distance. (Distance / CellSize) * CellSize
-        int bufferTileDistance = ((CalculateDistance(destTilePos, starTilePos) / 4) * 4) + 8;
+        int bufferTileDistance = ((DistanceHelper.CalculateDistance(destTilePos, starTilePos) / 4) * 4) + 8;
 
         // Are we trying to path find in the same room? If so the logic is not as complicated
         // as trying to travel across rooms.
@@ -131,7 +131,7 @@ public class PathFinding : MonoBehaviour
 
         foreach (Cell next in controller.Grid.Neighbors(curr))
         {
-            int distance = CalculateDistance(next.Position, dest.Position); 
+            int distance = DistanceHelper.CalculateDistance(next.Position, dest.Position); 
 
             bool BothAreHallways = (next.Type == CellType.Hallway && curr.Type == CellType.Hallway);
             bool BothAreDoors = (next.Type == CellType.Door && curr.Type == CellType.Door) || BothAreHallways;
@@ -284,22 +284,6 @@ public class PathFinding : MonoBehaviour
     private void Start()
     {
         this.controller = this.GetComponent<MazeController>();
-    }
-
-    /// <summary>
-    /// Simple function to help with calculating the distance between two vectors.
-    /// </summary>
-    /// <param name="C1"></param>
-    /// <param name="C2"></param>
-    /// <returns></returns>
-    private static int CalculateDistance(Vector3Int C1, Vector3Int C2)
-    {
-        // Calculate the absolute difference in x, y, and z coordinates (Manhattan distance)
-        int x = Mathf.Abs(C1.x - C2.x);
-        int y = Mathf.Abs(C1.y - C2.y);
-        int z = Mathf.Abs(C1.z - C2.z);
-
-        return x + y + z;
     }
 
     /// <summary>

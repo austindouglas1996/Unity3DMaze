@@ -15,4 +15,24 @@ public static class RandomHelper
         int randomInt = Random.Range(0, 100);
         return randomInt <= max;
     }
+
+    /// <summary>
+    /// Returns a random rotation between 0, 90 and 180 degrees.
+    /// </summary>
+    /// <returns></returns>
+    public static Quaternion GetRandomRotation()
+    {
+        int randomRotation = UnityEngine.Random.Range(0, 2);
+        switch (randomRotation)
+        {
+            case 0:
+                return Quaternion.Euler(0, 0, 0);
+            case 1:
+                return Quaternion.Euler(0, 90, 0);
+            case 2:
+                return Quaternion.Euler(0, 180, 0);
+            default:
+                return Quaternion.identity;
+        }
+    }
 }
