@@ -589,7 +589,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             return;
 
         // Get (possibly) best direction.
-        Vector3 direction = DetermineDirectionBetweenPoints(APOS, BPOS);
+        Vector3 direction = DistanceHelper.DetermineDirectionBetweenPointsXZ(this.Grid, APOS, BPOS);
 
         // Keep a list of stair hallways that will be made during this
         // this connection between these two roots.
@@ -659,7 +659,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private Vector3Int CreatePathBetweenCellsX(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
     {
         // Determine if we're going up or down.
-        bool positive = IsPositiveDirection(curr.x, B.x);
+        bool positive = DistanceHelper.IsPositiveDirection(curr.x, B.x);
 
         while (positive && curr.x - B.x < 0 || !positive && curr.x - B.x > 0)
         {
@@ -688,7 +688,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
     {        
         // Determine if we're going up or down.
-        bool positive = IsPositiveDirection(curr.z, B.z);
+        bool positive = DistanceHelper.IsPositiveDirection(curr.z, B.z);
 
         while (positive && curr.z - B.z < 0 || !positive && curr.z - B.z > 0)
         {            
@@ -724,9 +724,9 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             return new Tuple<bool, List<HallwayStairMap>>(false, null);
 
         // Determine if we're going up or down.
-        bool positiveX = IsPositiveDirection(curr.x, B.x);
-        bool positiveY = IsPositiveDirection(A.y, B.y);
-        bool positiveZ = IsPositiveDirection(curr.z, B.z);
+        bool positiveX = DistanceHelper.IsPositiveDirection(curr.x, B.x);
+        bool positiveY = DistanceHelper.IsPositiveDirection(A.y, B.y);
+        bool positiveZ = DistanceHelper.IsPositiveDirection(curr.z, B.z);
 
         // Stairways sometimes turn. Due to this we need a one cell break
         // between the two. This is a rare case, but this resolves the problem
@@ -884,7 +884,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <returns></returns>
     private HallwayMap CreateMap(Vector3Int pos, bool isRoot, DoorPair pair = null)
     {
-        if (!this.CheckIsValid(pos))
+        if (!this.Grid.IsValid(pos))
         {
             return null;
         }
@@ -911,59 +911,5 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             throw new InvalidOperationException("Cell does not exist in premap.");
 
         return true;
-    }
-
-    /// <summary>
-    /// Check if a given tile position is valid for a new hallway.
-    /// </summary>
-    /// <param name="position"></param>
-    /// <returns></returns>
-    private bool CheckIsValid(Vector3Int position)
-    {
-        var mazeCell = Maze.Grid[position];
-        var localCell = this.Grid[position];
-        var localMap = this.PreMappedCells.Where(r => r.Position == position).ToList();
-
-        // Maze already has a cell here.
-        if (mazeCell.Type != CellType.None 
-            || localCell.Type != CellType.None
-            || localMap.Count != 0)
-            return false;
-
-        return true;
-    }
-
-    /// <summary>
-    /// Determines if moving from point a to point b is in a positive direction.
-    /// </summary>
-    /// <param name="a">Starting point</param>
-    /// <param name="b">Ending point</param>
-    /// <returns>True if moving in a positive direction, otherwise false for negative</returns>
-    private bool IsPositiveDirection(float a, float b)
-    {
-        return (b > a);
-    }
-
-    /// <summary>
-    /// Determine the best direction to move from one position to another. Helps with
-    /// navigating cell positions from left to right, or up and down.
-    /// </summary>
-    /// <param name="APOS"></param>
-    /// <param name="BPOS"></param>
-    /// <returns></returns>
-    private Vector3 DetermineDirectionBetweenPoints(Vector3Int APOS, Vector3Int BPOS)
-    {
-        // Create temporary positions for checking the direction.
-        Vector3Int tempA = new Vector3Int(APOS.x, APOS.y, APOS.z + (APOS.z < BPOS.z ? 4 : -4));
-        Vector3Int tempB = new Vector3Int(APOS.x + (APOS.x < BPOS.x ? 4 : -4), APOS.y, APOS.z);
-
-        // Check if moving in the Z direction is possible.
-        if (!CheckIsValid(tempB))
-        {
-            return new Vector3(0, 0, 1); // Move right/left
-        }
-
-        // If not, move in the X direction.
-        return new Vector3(1, 0, 0); // Move up/down
     }
 }

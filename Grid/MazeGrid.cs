@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using Unity.VisualScripting;
@@ -165,6 +166,28 @@ public class MazeGrid
 
         return Cell(position.RoundToInt());
     }
+
+    /// <summary>
+    /// Checks whether a <see cref="Cell"/> is set to <see cref="CellType.None"/> for a new cell to be placed.
+    /// </summary>
+    /// <param name="cellPos"></param>
+    /// <returns></returns>
+    public bool IsValid(Vector3Int cellPos)
+    {
+        return this.IsValid(this[cellPos]);
+    }
+
+    /// <summary>
+    /// Checks whether a <see cref="Cell"/> is set to <see cref="CellType.None"/> for a new cell to be placed.
+    /// </summary>
+    /// <param name="cellPos"></param>
+    /// <returns></returns>
+    public bool IsValid(Cell cellPos)
+    {
+        return cellPos.Type == CellType.None;
+    }
+
+
 
 
 
