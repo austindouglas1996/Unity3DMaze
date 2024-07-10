@@ -7,6 +7,7 @@ using Unity.VisualScripting;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using UnityEngine.UIElements;
+using VHierarchy.Libs;
 using Random = UnityEngine.Random;
 
 public class HallwayMap
@@ -221,6 +222,28 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         await this.CommitCells();
 
         this.GenerateFinished = true;
+    }
+
+    /// <summary>
+    /// Destroy everything this generator made.
+    /// </summary>
+    /// <returns></returns>
+    public async Task ResetGenerator()
+    {
+        this.MapGrid.Clear();
+        this.HallwayCells.Clear();
+        this.PreMappedCells.Clear();
+        this.PreMappedStairCells.Clear();
+
+        // Destroy.
+        foreach (HallwayMono hall in this.Generated)
+        {
+            hall.gameObject.Destroy();
+        }
+        this.Generated.Clear();
+
+        this.GenerateCalled = false;
+        this.GenerateFinished = false;
     }
 
     /// <summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.VisualScripting;
 using UnityEngine;
+using VHierarchy.Libs;
 
 [RequireComponent(typeof(MazeController))]
 public class MazeItemGenerator : MonoBehaviour, IGenerator<PocketableItem>
@@ -61,6 +62,21 @@ public class MazeItemGenerator : MonoBehaviour, IGenerator<PocketableItem>
         await AddUntilSatisified();
 
         this.GenerateFinished = true;
+    }
+
+    /// <summary>
+    /// Destroy and reset this generator.
+    /// </summary>
+    /// <returns></returns>
+    public async Task ResetGenerator()
+    {
+        foreach (PocketableItem item in Generated)
+        {
+            item.Destroy();
+        }
+
+        this.GenerateCalled = false;
+        this.GenerateFinished = false;
     }
 
     /// <summary>

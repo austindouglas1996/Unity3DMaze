@@ -20,4 +20,10 @@ public interface IGenerator<TOutput> : IGenerate
     /// </summary>
     /// <returns></returns>
     public Task Generate();
+
+    /// <summary>
+    /// Destroy the current implementation.
+    /// </summary>
+    /// <returns></returns>
+    public Task ResetGenerator();
 }

@@ -268,6 +268,11 @@ public class MazeGrid
         return cell;
     }
 
+    public void Clear()
+    {
+        this.Cells.Clear();
+    }
+
     public bool Remove(Vector3Int pos)
     {
         Cell cell = this[pos];

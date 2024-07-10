@@ -123,6 +123,14 @@ public class DoorRegistry : MonoBehaviour
     }
 
     /// <summary>
+    /// Remove all instances of doors.
+    /// </summary>
+    public void Clear()
+    {
+        this.doors.Clear();
+    }
+
+    /// <summary>
     /// Return an instance of a door based on its position.
     /// </summary>
     /// <param name="position"></param>

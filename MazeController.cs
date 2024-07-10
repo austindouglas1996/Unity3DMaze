@@ -32,6 +32,9 @@ public class MazeController : MonoBehaviour
     public bool ShowDoorPathingCells = false;
     [SerializeField] private GameObject DoorPathCube;
 
+    [Tooltip("Destroy the current and regenerate.")]
+    public bool ResetMaze = false;
+
     /// <summary>
     /// Container for path cells.
     /// </summary>
@@ -87,6 +90,15 @@ public class MazeController : MonoBehaviour
         this.Items = this.GetComponent<MazeItemGenerator>();
         this.PathFinder = this.GetComponent<PathFinding>();
 
+        await this.CreateMaze();
+    }
+
+    /// <summary>
+    /// Create the mazes along with their respective addons.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CreateMaze()
+    {
         if (GenerateRooms)
             await this.Rooms.Generate();
 
@@ -111,11 +123,37 @@ public class MazeController : MonoBehaviour
             go.GetComponent<CellMono>().Room = cell.Room;
             go.GetComponent<CellMono>().Type = cell.Type;
         }
-       
+
 
         DoorRegistry.Debug();
         GenerateFinished = true;
         this.OnValidate();
+    }
+
+    /// <summary>
+    /// Destroy maze instances to clear the maze.
+    /// </summary>
+    /// <returns></returns>
+    private async Task DestroyMaze()
+    {
+        await this.Rooms.ResetGenerator();
+        await this.Hallways.ResetGenerator();
+        await this.Items.ResetGenerator();
+
+        this.Grid.Clear();
+        this.DoorRegistry.Clear();
+
+        // Destroy path container.
+        foreach (Transform child in this.PathContainer.transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // Destroy door container.
+        foreach (Transform child in this.DoorPathContainer.transform)
+        {
+            Destroy(child.gameObject);
+        }
     }
 
     /// <summary>
@@ -176,8 +214,14 @@ public class MazeController : MonoBehaviour
         }
     }
 
-    private void OnValidate()
+    private async Task OnValidate()
     {
+        if (this.ResetMaze)
+        {
+            this.ResetMaze = false;
+            await this.DestroyMaze();
+            await this.CreateMaze();
+        }
         this.DisplayPathingCells(this.ShowPathingCells);
         this.DisplayDoorCells(this.ShowDoorPathingCells);
     }

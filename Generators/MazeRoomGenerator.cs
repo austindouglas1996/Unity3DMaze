@@ -5,6 +5,7 @@ using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
+using VHierarchy.Libs;
 using Random = UnityEngine.Random;
 
 
@@ -114,6 +115,22 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         }
 
         this.GenerateFinished = true;
+    }
+
+    public async Task ResetGenerator()
+    {
+        this.UsedSpecialRooms.Clear();
+        this.GeneratedWithoutAvailability.Clear();
+
+        foreach (RoomMono room in Generated)
+        {
+            room.gameObject.Destroy();
+        }
+
+        this.Generated.Clear();
+
+        this.GenerateCalled = false;
+        this.GenerateFinished = false;
     }
 
     /// <summary>
