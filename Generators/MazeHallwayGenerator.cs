@@ -21,10 +21,10 @@ public class HallwayMap
     public bool IsRoot = false;
     public bool IsTrap = false;
 
-    public bool LeftV = true;
-    public bool RightV = true;
-    public bool UpV = true;
-    public bool BottomV = true;
+    public bool LeftV = false;
+    public bool RightV = false;
+    public bool UpV = false;
+    public bool BottomV = false;
 
     public string NameOverride = "";
     public DoorPair DoorPair = null;
@@ -209,7 +209,10 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         // Create the pathing for each maze cell.
         // This is like a cleanup.
         this.MapMathingPreRun();
-        this.MapPathing();
+        while (await this.MapPathing())
+        {
+            await this.MapPathing();
+        }
 
         // Final touchups before deploying.
         this.MapDetails();
@@ -358,8 +361,11 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <summary>
     /// Determines map walls and if they should be open, closed, or destroyed.
     /// </summary>
-    private void MapPathing()
+    private async Task<bool> MapPathing()
     {
+        await Task.Delay(10);
+        bool unclean = false;
+
         foreach (var map in PreMappedCells.ToList())
         {
             CellDirectionalGroup neighbors = GetBestNeighborsAll(map.Position, 1);
@@ -376,6 +382,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 {
                     // Delete this one.
                     this.RemoveMap(map);
+                    unclean = true;
                     continue;
                 }
 
@@ -389,21 +396,41 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                     map.UpV = false;
                     map.RightV = false;
                 }
-
             }
 
-            if (neighbors.Up.Type != CellType.None)
-                map.UpV = false;
+            /* I do not know why, and im very mad, but this is a solution
+             * to getting what walls should be visible from an edge case.
+             I spent over 3 hours trying to figure out why randomly
+            some walls would break here. I added a lot of debug logic 
+            and came all the way back here for it for Visual Studio
+            if (up.Type == None) do something when up.type == none it would not trigger.*/
+            bool up = neighbors.Up.Type == CellType.None;
+            bool left = neighbors.Left.Type == CellType.None;
+            bool right = neighbors.Right.Type == CellType.None;
+            bool down = neighbors.Down.Type == CellType.None;
 
-            if (neighbors.Left.Type != CellType.None)
-                map.LeftV = false;
+            if (up)
+            {
+                map.UpV = true;
+            }
 
-            if (neighbors.Right.Type != CellType.None)
-                map.RightV = false;
+            if (left)
+            {
+                map.LeftV = true;
+            }
 
-            if (neighbors.Down.Type != CellType.None)
-                map.BottomV = false;
+            if (right)
+            {
+                map.RightV = true;
+            }
+
+            if (down)
+            {
+                map.BottomV = true;
+            }
         }
+
+        return unclean;
     }
 
     /// <summary>
@@ -534,8 +561,14 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         Vector3Int APOS = A.Position;
         Vector3Int BPOS = B.Position;
 
+        if (APOS == BPOS)
+        {
+            Debug.LogWarning($"Just tried to connect a root to itself? A: {A.Position} B:{B.Position}");
+            return;
+        }
+
         // Don't allow hallway paths that are outside a small range.
-        if (Vector3.Distance(APOS, BPOS) > 40)
+        if ((Vector3.Distance(APOS, BPOS) > 6 * 4))
             return;
 
         // Get (possibly) best direction.
@@ -545,12 +578,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         // this connection between these two roots.
         List<HallwayStairMap> stairways = new List<HallwayStairMap>();
 
-        // Only connect hallway roots on same X/Z
-        // Let the record show we started here on 7/2.
-        // This If had a return in case we forget from the PTSD.
-        // If I'm not back 7/12 send help.
-        //
-        // 7/7 bonjour, SOS.
+        // Try to create stairs between two cells if possible.
         if (APOS.y != BPOS.y)
         {
             var verticalSpaces = IsThereVerticalOpening(APOS, A.Position, B.Position);
@@ -571,16 +599,37 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             }
         }
 
+        Vector3Int currentPosition = APOS;
+
+        /*
+         * You may be looking at this and thinking this is built wrong. You would be right, but
+         * when this is built correctly the maze suffers. Because of this we purposefully
+         * break the maze.
+         * 
+         * In case we need to correct it:
+         * 
+         *  direction.X == 1
+         *  currentPosition = CreatePathBetweenCellsZ(APOS, A.Position, B.Position, stairways);
+         *  CreatePathBetweenCellsX(currentPosition, A.Position, B.Position, stairways);
+         *  
+         *  direction.z == 1
+         *  currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
+         *  CreatePathBetweenCellsX(currentPosition, A.Position, B.Position, stairways);
+         */
+
         if (direction.x == 1)
         {
-            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
+            currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
             CreatePathBetweenCellsZ(currentPosition, A.Position, B.Position, stairways);
         }
         else
         {
-            Vector3Int currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
-            CreatePathBetweenCellsX(currentPosition, A.Position, B.Position, stairways);
+            currentPosition = CreatePathBetweenCellsX(APOS, A.Position, B.Position, stairways);
+            CreatePathBetweenCellsZ(currentPosition, A.Position, B.Position, stairways);
         }
+
+        if (currentPosition == APOS)
+            Debug.LogWarning($"Failed to make any connections for {A.Position} to {B.Position}");
     }
 
     /// <summary>
@@ -605,6 +654,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             {
                 curr = stairway.Exit;
             }
+
+            var result = this.CreateMap(curr, false);
         }
 
         return curr;
@@ -618,7 +669,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <param name="B"></param>
     /// <returns></returns>
     private Vector3Int CreatePathBetweenCellsZ(Vector3Int curr, Vector3Int A, Vector3Int B, List<HallwayStairMap> request)
-    {
+    {        
         // Determine if we're going up or down.
         bool positive = IsPositiveDirection(curr.z, B.z);
 
@@ -632,6 +683,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             {
                 curr = stairway.Exit;
             }
+
+            var result = this.CreateMap(curr, false);
         }
 
         return curr;
@@ -983,12 +1036,12 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         Vector3Int tempB = new Vector3Int(APOS.x + (APOS.x < BPOS.x ? 4 : -4), APOS.y, APOS.z);
 
         // Check if moving in the Z direction is possible.
-        if (!CheckIsValid(tempA))
+        if (!CheckIsValid(tempB))
         {
-            return new Vector3(1, 0, 0); // Move right/left
+            return new Vector3(0, 0, 1); // Move right/left
         }
 
         // If not, move in the X direction.
-        return new Vector3(0, 0, 1); // Move up/down
+        return new Vector3(1, 0, 0); // Move up/down
     }
 }

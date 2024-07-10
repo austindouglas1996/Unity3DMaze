@@ -32,7 +32,6 @@ public class MazeController : MonoBehaviour
     public bool ShowDoorPathingCells = false;
     [SerializeField] private GameObject DoorPathCube;
 
-
     /// <summary>
     /// Container for path cells.
     /// </summary>
@@ -91,6 +90,8 @@ public class MazeController : MonoBehaviour
         if (GenerateRooms)
             await this.Rooms.Generate();
 
+        await Task.Delay(1000);
+
         if (GenerateRooms && GenerateHalls)
             await this.Hallways.Generate();
 
@@ -114,6 +115,7 @@ public class MazeController : MonoBehaviour
 
         DoorRegistry.Debug();
         GenerateFinished = true;
+        this.OnValidate();
     }
 
     /// <summary>

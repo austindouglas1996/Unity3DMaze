@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.VisualScripting;
 
 public class CellDirectionalGroup : IEnumerable<Cell>
@@ -8,15 +9,15 @@ public class CellDirectionalGroup : IEnumerable<Cell>
 
     public CellDirectionalGroup(List<Cell> cells)
     {
-        this.cells = cells;
+        this.cells = cells.ToList();
     }
 
     public List<Cell> Group { get => cells; }
 
     public Cell Up { get => TryGet(0); }
+    public Cell Right { get => TryGet(1); }
     public Cell Down { get => TryGet(2); }
     public Cell Left { get => TryGet(3); }
-    public Cell Right { get => TryGet(1); }
     public Cell UpRight { get => TryGet(4); }
     public Cell UpLeft { get => TryGet(5); }
     public Cell DownRight { get => TryGet(6); }

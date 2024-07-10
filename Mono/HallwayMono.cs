@@ -12,6 +12,11 @@ public class HallwayMono : RoomMono
 {
     private bool ReadyForProps = false;
 
+    [SerializeField] public bool WallLeftVisible = false;
+    [SerializeField] public bool WallRightVisible = false;
+    [SerializeField] public bool WallTopVisible = false;
+    [SerializeField] public bool WallBottomVisible = false;
+
     /// <summary>
     /// The original facing direction of the room. Helper for <see cref="HallwayMono"/>.
     /// </summary>
@@ -29,6 +34,15 @@ public class HallwayMono : RoomMono
         }
 
         this.GenerateFinished = false;
+
+        if (map.UpV)
+            this.WallTopVisible = true;
+        if (map.RightV)
+            this.WallRightVisible = true;
+        if (map.LeftV)
+            this.WallLeftVisible = true;
+        if (map.BottomV)
+            this.WallBottomVisible = true;
 
         SetHallwayWallVisible(SpatialOrientation.Up, map.UpV);
         SetHallwayWallVisible(SpatialOrientation.Right, map.RightV);

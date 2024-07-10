@@ -295,9 +295,7 @@ public class MazeGrid
             if (floorObject.gameObject.layer == LayerMask.NameToLayer("Floor"))
             {
                 Vector3Int currentPosition = floorObject.position.RoundToInt();
-                Cell newCell = new Cell() { Type = type, Position = currentPosition + new Vector3Int(0, 2, 0), Room = room };
-
-                Cells.Add(newCell);
+                Cell newCell = this.Add(currentPosition + new Vector3Int(0, 2, 0), type, room);
                 newBounds.Add(newCell);
             }
         }
