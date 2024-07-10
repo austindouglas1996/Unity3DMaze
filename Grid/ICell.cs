@@ -5,4 +5,5 @@ public interface ICell
 {
     public CellType Type { get; set; }
     public Vector3Int Position { get; set; }
+    public int GroupID { get; set; }
 }

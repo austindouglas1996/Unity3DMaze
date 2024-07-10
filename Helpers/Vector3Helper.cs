@@ -16,4 +16,20 @@ public static class Vector3Helper
             Mathf.RoundToInt(vector.y),
             Mathf.RoundToInt(vector.z));
     }
+
+    /// <summary>
+    /// Returns the distance between two positions.
+    /// </summary>
+    /// <param name="C1"></param>
+    /// <param name="C2"></param>
+    /// <returns></returns>
+    public static int CalculateDistance(Vector3Int C1, Vector3Int C2)
+    {
+        // Calculate the absolute difference in x, y, and z coordinates (Manhattan distance)
+        int x = Mathf.Abs(C1.x - C2.x);
+        int y = Mathf.Abs(C1.y - C2.y);
+        int z = Mathf.Abs(C1.z - C2.z);
+
+        return x + y + z;
+    }
 }

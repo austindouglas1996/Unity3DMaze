@@ -6,7 +6,8 @@ using UnityEngine;
 [System.Serializable]
 public class Cell : ICell
 {
-    public RoomMono Room { get; set; }
     public CellType Type { get; set; }
     public Vector3Int Position { get; set; }
+    public int GroupId { get; set; }
+    public RoomMono Room { get; set; }
 }

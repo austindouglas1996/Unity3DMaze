@@ -391,7 +391,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
         foreach (var map in PreMappedCells.ToList())
         {
-            CellDirectionalGroup neighbors = GetBestNeighborsAll(map.Position, 1);
+            CellNeighborGroup neighbors = GetBestNeighbors(map.Position, 1);
 
             if (neighbors.Up.Type != CellType.None 
                 && neighbors.Left.Type != CellType.None
@@ -926,8 +926,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <exception cref="ArgumentException"></exception>
     private List<Cell> GetBestNeighbors(Vector3Int pos, int distance)
     {
-        List<Cell> localNeighbors = this.MapGrid.DirectNeighbors(this.MapGrid[pos], distance);
-        List<Cell> globalNeighbors = this.Maze.Grid.DirectNeighbors(this.Maze.Grid[pos], distance);
+        List<Cell> localNeighbors = this.MapGrid.Neighbors(this.MapGrid[pos], distance);
+        List<Cell> globalNeighbors = this.Maze.Grid.Neighbors(this.Maze.Grid[pos], distance);
         List<Cell> cells = new List<Cell>();
 
         if (localNeighbors.Count != globalNeighbors.Count)
@@ -942,28 +942,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     }
 
     /// <summary>
-    /// Look through the <see cref="MapGrid"/> and <see cref="Maze.Grid"/> to find the most suitable
-    /// neighbor. This is needed when deteriming for hallway cells if they are next to a room.
-    /// </summary>
-    /// <param name="pos"></param>
-    /// <param name="distance"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    private CellDirectionalGroup GetBestNeighborsAll(Vector3Int pos, int distance)
-    {
-        var localNeighbors = this.MapGrid.AllNeighbors(this.MapGrid[pos], distance);
-        var globalNeighbors = this.Maze.Grid.AllNeighbors(this.Maze.Grid[pos], distance);
-        List<Cell> cells = new List<Cell>();
-
-        for (int i = 0; i < localNeighbors.Group.Count; i++)
-        {
-            cells.Add(globalNeighbors.Group[i].Type == CellType.None ? localNeighbors.Group[i] : globalNeighbors.Group[i]);
-        }
-
-        return new CellDirectionalGroup(cells);
-    }
-
-    /// <summary>
     /// Retrieves a list of neighbor cells that are also hallways.
     /// </summary>
     /// <param name="grid"></param>
@@ -972,7 +950,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <returns></returns>
     private List<Cell> GetNeighborHallways(MazeGrid grid, Vector3Int pos, int distance = 1)
     {
-        List<Cell> neighbors = grid.DirectNeighbors(grid[pos], distance);
+        List<Cell> neighbors = grid.Neighbors(grid[pos], distance);
         return neighbors.Where(r => r.Type == CellType.Hallway).ToList();
     }
 

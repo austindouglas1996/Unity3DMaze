@@ -89,18 +89,25 @@ public class MazeGrid
         {
             case SpatialOrientation.Up:
                 return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z];
+
             case SpatialOrientation.Right:
                 return this[cell.Position.x, cell.Position.y, cell.Position.z - (4 * distance)];
+
             case SpatialOrientation.Down:
                 return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z];
+
             case SpatialOrientation.Left:
                 return this[cell.Position.x, cell.Position.y, cell.Position.z + (4 * distance)];
+
             case SpatialOrientation.UpRight:
                 return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
+
             case SpatialOrientation.UpLeft:
                 return this[cell.Position.x + (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
+
             case SpatialOrientation.DownRight:
                 return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z - (4 * distance)];
+
             case SpatialOrientation.DownLeft:
                 return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
             default:
@@ -109,41 +116,14 @@ public class MazeGrid
     }
 
     /// <summary>
-    /// Returns the up,right,down,and left neighbors of a cell by a certain distance. Distance is multiplication of tile size.
+    /// Returns an instance of <see cref="CellNeighborGroup"/> that includes neighbor cells.
     /// </summary>
     /// <param name="cell"></param>
     /// <param name="distance"></param>
     /// <returns></returns>
-    public List<Cell> DirectNeighbors(Cell cell, int distance = 1)
+    public CellNeighborGroup Neighbors(Cell cell, int distance)
     {
-        List<Cell> neighbors = new List<Cell>();
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Up, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Right, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Down, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Left, distance));
-
-        return neighbors;
-    }
-
-    /// <summary>
-    /// Returns the up,right,down,and left neighbors of a cell by a certain distance. Distance is multiplication of tile size.
-    /// </summary>
-    /// <param name="cell"></param>
-    /// <param name="distance"></param>
-    /// <returns></returns>
-    public CellDirectionalGroup AllNeighbors(Cell cell, int distance = 1)
-    {
-        List<Cell> neighbors = new List<Cell>();
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Up, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Right, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Down, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.Left, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.UpRight, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.UpLeft, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.DownRight, distance));
-        neighbors.Add(Neighbor(cell, SpatialOrientation.DownLeft, distance));
-
-        return new CellDirectionalGroup(neighbors);
+        return new CellNeighborGroup(this, cell, distance);
     }
 
     /// <summary>
@@ -175,80 +155,6 @@ public class MazeGrid
         return Cell(position.RoundToInt());
     }
 
-    /// <summary>
-    /// Find a child cell by a certain position with an offset. The default offset is 2 as most tiles have a offset of 2.
-    /// </summary>
-    /// <param name="parent"></param>
-    /// <param name="position"></param>
-    /// <param name="offset"></param>
-    /// <returns></returns>
-    public Transform FindChildByPosition(Transform parent, Vector3 position, int offset = 2)
-    {
-        foreach (Transform child in parent)
-        {
-            Vector3 roundedChildPosition = child.position.RoundToInt();
-
-            // Check if the child's position is within the offset range
-            if (Mathf.Abs(roundedChildPosition.x - position.x) <= offset &&
-                Mathf.Abs(roundedChildPosition.y - position.y) <= offset &&
-                Mathf.Abs(roundedChildPosition.z - position.z) <= offset)
-            {
-                return child;
-            }
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Find the closest cell of a certain type by the current cell.
-    /// </summary>
-    /// <param name="currentCell"></param>
-    /// <param name="type"></param>
-    /// <returns></returns>
-    public Cell FindClosest(Cell currentCell, CellType type, bool requireSameRoom = true)
-    {
-        Cell closestCell = null;
-        int closestDistance = int.MaxValue;
-
-        foreach (Cell cell in Cells)
-        {
-            if (cell.Type != type || requireSameRoom && cell.Room != currentCell.Room) continue;
-
-            // Check if this tile is farther than our recorded cell.
-            int distance = CalculateDistance(cell.Position, cell.Position);
-            if (distance > closestDistance) continue;
-
-            // We found it!
-            closestCell = cell;
-        }
-
-        return closestCell;
-    }
-
-
-
-
-
-
-
-
-
-
-    /// <summary>
-    /// Calculate the distance between two <see cref="Vector3Int"/>.
-    /// </summary>
-    /// <param name="C1"></param>
-    /// <param name="C2"></param>
-    /// <returns></returns>
-    private static int CalculateDistance(Vector3Int C1, Vector3Int C2)
-    {
-        // Calculate the absolute difference in x, y, and z coordinates (Manhattan distance)
-        int x = Mathf.Abs(C1.x - C2.x);
-        int y = Mathf.Abs(C1.y - C2.y);
-        int z = Mathf.Abs(C1.z - C2.z);
-
-        return x + y + z;
-    }
 
 
     public Cell Add(Vector3Int pos, CellType type, RoomMono room = null)

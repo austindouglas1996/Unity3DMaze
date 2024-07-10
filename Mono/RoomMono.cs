@@ -298,7 +298,7 @@ public class RoomMono : MonoBehaviour
     {
         foreach (RoomFixtureMono piece in this.transform.GetComponentsInChildren<RoomFixtureMono>())
         {
-            //await piece.GenerateProps();
+            await piece.GenerateProps();
         }
     }
 

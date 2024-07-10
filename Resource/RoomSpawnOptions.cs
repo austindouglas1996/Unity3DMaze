@@ -30,16 +30,16 @@ public class PropTypeChance
 public class RoomSpawnOptions
 {
     [Tooltip("Chance a trap will be spawned on a tile in percent.")]
-    [SerializeField] public int ChanceForTrap = 40;
+    [SerializeField] public int ChanceForTrap = 10;
 
     [Tooltip("Chance a special tile will generate a special prop instead of a generic item.")]
-    [SerializeField] public int ChanceForFloorSpecial = 80;
+    [SerializeField] public int ChanceForFloorSpecial = 40;
 
     [Header("Spawn chances")]
     [SerializeField]
     private List<PropTypeChance> SpawnChances = new List<PropTypeChance>()
     {
-        new PropTypeChance() { Chance = 100, Type = RoomFixtureIdentityType.Door},
+        new PropTypeChance() { Chance = 70, Type = RoomFixtureIdentityType.Door},
         new PropTypeChance() { Chance = 80, Type = RoomFixtureIdentityType.Wall},
         new PropTypeChance() { Chance = 80, Type = RoomFixtureIdentityType.ShortWall},
         new PropTypeChance() { Chance = 70, Type = RoomFixtureIdentityType.Floor},
