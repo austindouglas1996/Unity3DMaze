@@ -73,6 +73,23 @@ public class DoorPair
     }
 
     /// <summary>
+    /// Retrieve the other rooms cell.
+    /// </summary>
+    /// <param name="currentRoom"></param>
+    /// <returns></returns>
+    public Cell GetOtherCell(RoomMono currentRoom)
+    {
+        if (currentRoom == A)
+            return BCell;
+        else if (currentRoom == B)
+            return ACell;
+        else
+            Debug.Log("The specified room is not connected to this door.");
+
+        return null;
+    }
+
+    /// <summary>
     /// Checks if both rooms is connected.
     /// </summary>
     /// <returns></returns>
