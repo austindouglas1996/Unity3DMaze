@@ -124,11 +124,8 @@ public class MazeController : MonoBehaviour
             GameObject go = Instantiate(this.PathCellCube, cell.Position, Quaternion.identity, this.PathContainer.transform);
             go.tag = "Path";
 
-            go.AddComponent<CellMono>();
-            go.GetComponent<CellMono>().GroupId = cell.GroupId;
-            go.GetComponent<CellMono>().Position = cell.Position;
-            go.GetComponent<CellMono>().Room = cell.Room;
-            go.GetComponent<CellMono>().Type = cell.Type;
+            CellMono cMono = go.AddComponent<CellMono>();
+            cMono.Set(cell);
         }
 
 

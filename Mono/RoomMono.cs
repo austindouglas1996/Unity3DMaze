@@ -115,11 +115,6 @@ public class RoomMono : MonoBehaviour
     public List<GameObject> Doors = new List<GameObject>();
 
     /// <summary>
-    /// Contains a list of room bounds.
-    /// </summary>
-    public List<Cell> GridBounds = new List<Cell>();
-
-    /// <summary>
     /// Helpful for sometimes we can <see cref="Doors"/> before <see cref="GenerateDoors"/> called.
     /// </summary>
     public bool GenerateCalled = false;

@@ -10,8 +10,6 @@ using UnityEngine;
 public class PathFinding : MonoBehaviour
 {
     private MazeController controller;
-    public GameObject debugCube;
-    private List<GameObject> debugs = new List<GameObject>();
 
     /// <summary>
     /// A simple BFS greedy search algorithm to find the distance between two cells.
@@ -40,6 +38,40 @@ public class PathFinding : MonoBehaviour
         // This is not in the same room. Get possible routes to room.
         if (star.GroupId != dest.GroupId)
         {
+            // Our path-finding is good enough to connect door to door, but hallways 
+            // are special rooms and our path-finding does not like them. Because of this
+            // we need to handle hallways in a special way. 
+            //
+            // First route the start/destination cell to the closest door cell.
+            if (star.Type == CellType.Hallway)
+            {
+                Cell startDoorCells = FindPathToClosestDoor(star, bufferTileDistance, visited, path);
+                if (startDoorCells == null)
+                {
+                    Debug.LogWarning($"Pathfinding: Failed to find a star door near {star.Position}");
+                    return null;
+                }
+
+                // Update our start position to the door.
+                star = startDoorCells;
+            }
+
+            if (dest.Type == CellType.Hallway)
+            {
+                Cell destDoorCells = FindPathToClosestDoor(dest, bufferTileDistance, visited, path);
+                if (destDoorCells == null)
+                {
+                    Debug.LogWarning($"Pathfinding: Failed to find a dest door near {star.Position}");
+                    return null;
+                }
+
+                // Update our destination position to the door.
+                dest = destDoorCells;
+            }
+
+            // Reset the visited.
+            visited.Clear();
+
             // Uses a greedy Breadth-First-Search to determine the cheapest
             // path from A room to B room. Returns the door object and the side of the room it should be in.
             var roomTravels = DeterminePathToRoom(star.Room, dest.Room);
@@ -95,7 +127,7 @@ public class PathFinding : MonoBehaviour
             // as trying to travel across rooms.
             path = DetermineCellPathInRoom2D(star, dest, bufferTileDistance, visited);
         }
-
+        
         if (path != null)
             OrganizeStack(path, dest, initialStart);
 
@@ -208,11 +240,99 @@ public class PathFinding : MonoBehaviour
             if (curr.Room != next.Room && !BothAreDoors)
                 continue;
 
+            // Edge case.
+            if (IsLandLocked(next))
+                continue;
+
             closestCell = next;
             closestDistance = distance;
         }
 
         return closestCell;
+    }
+
+    /// <summary>
+    /// Tells whether a cell during path finding will reach a dead end.
+    /// </summary>
+    /// <param name="curr"></param>
+    /// <returns></returns>
+    private bool IsLandLocked(Cell curr)
+    {
+        foreach (Cell neighbor in  controller.Grid.Neighbors(curr))
+        {
+            if (neighbor.Type != CellType.None) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Find the fastest path to route a <see cref="Cell"/> to the nearest door. This method helps with pathfinding. Our pathfinding
+    /// system does not like crossing rooms. Hallways are special rooms that break pathfinding. To fix this, we first path find
+    /// to the nearest door then continue the find.
+    /// </summary>
+    /// <param name="star"></param>
+    /// <param name="bufferTileDistance"></param>
+    /// <param name="visited"></param>
+    /// <param name="path"></param>
+    /// <returns></returns>
+    private Cell FindPathToClosestDoor(Cell star, int bufferTileDistance, HashSet<Vector3Int> visited, UniqueStack<Cell> path)
+    {
+        // Make sure this type is a hallway.
+        if (star.Type == CellType.Hallway)
+        {
+            // Find the closest door connection.
+            int lowestDistance = int.MaxValue;
+            DoorPair closestDoorPair = null;
+
+            // Get all door connections this tile has access to. We want to find
+            // the closest one near the position we're looking for. 
+            var connections = this.controller.Hallways.GetDoorCon(star.Position);
+            if (connections == null)
+            {
+                Debug.LogWarning($"Failed to find door connections for: {star.Position}");
+                return null;
+            }
+
+            foreach (var connection in this.controller.Hallways.GetDoorCon(star.Position))
+            {
+                var pair = this.controller.DoorRegistry.Get(connection);
+                if (pair == null) continue;
+
+                int distance = DistanceHelper.CalculateDistance(star.Position, pair.Door.transform.position.RoundToInt());
+
+                if (distance < lowestDistance)
+                {
+                    closestDoorPair = pair;
+                    lowestDistance = distance;
+                }
+            }
+
+            if (closestDoorPair == null)
+            {
+                Debug.LogWarning($"Failed to find an appropiate door pair for: {star.Position}");
+                return null;
+            }
+
+            // The target cell will always be opposite of what we're looking for
+            // but just in case, we'll make sure.
+            Cell starRoot = closestDoorPair.BCell;
+
+            // Find the path to the door.
+            var cellPath = DetermineCellPathInRoom2D(star, starRoot, bufferTileDistance, visited);
+            if (cellPath == null)
+            {
+                Debug.LogWarning("Found door connections, found an appropiate door. Failed to connect though.");
+                return null;
+            }
+
+            // Merge cells.
+            path.Combine(cellPath);
+
+            return starRoot;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -383,7 +503,7 @@ public class PathFinding : MonoBehaviour
             }
 
             // Get neighbors using the Neighbors function
-            foreach (var neighbor in controller.Grid.Neighbors(current, 1))
+            foreach (var neighbor in controller.Grid.Neighbors(current.Position, 1))
             {
                 if (neighbor != null && parent.ContainsKey(neighbor) && parent[neighbor] == null)
                 {
@@ -393,7 +513,7 @@ public class PathFinding : MonoBehaviour
             }
         }
 
-        // Reconstruct the path from start to end
+        // Reconstruct the path from end to start
         List<Cell> path = new List<Cell>();
         Cell? step = end;
         while (step != null && step != start)
@@ -402,12 +522,28 @@ public class PathFinding : MonoBehaviour
             step = parent[step];
         }
         path.Add(start);
-        path.Reverse();
+
+        // Check if the reconstructed path includes all required cells
+        if (!path.Contains(end) || path.Count < cells.Count)
+        {
+            // Handle the case where not all cells are included in the path
+            // For now, let's log the issue and add missing cells back
+            Debug.Log("Path reconstruction did not include all cells. Adding missing cells back.");
+
+            foreach (var cell in cells)
+            {
+                if (!path.Contains(cell))
+                {
+                    path.Add(cell);
+                }
+            }
+        }
 
         // Push sorted cells back into the stack
-        foreach (var cell in path)
+        for (int i = path.Count - 1; i >= 0; i--)
         {
-            stack.Push(cell);
+            stack.Push(path[i]);
         }
     }
+
 }

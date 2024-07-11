@@ -48,6 +48,14 @@ public class UniqueStack<T> : IEnumerable<T>
         return stack.Peek();
     }
 
+    public void Combine(UniqueStack<T> merge)
+    {
+        foreach (T item in merge)
+        {
+            this.Push(item);
+        }   
+    }
+
     public int Count
     {
         get { return stack.Count; }

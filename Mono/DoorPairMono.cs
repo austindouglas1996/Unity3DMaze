@@ -8,15 +8,6 @@ using UnityEngine;
 /// </summary>
 public class DoorPairMono : MonoBehaviour
 {
-    public DoorPairMono(DoorPair doorPair)
-    {
-        this.Door = doorPair.Door;
-        this.A = doorPair.A;
-        this.B = doorPair.B;
-        this.ACell = new CellMono(doorPair.ACell);
-        this.BCell = new CellMono(doorPair.BCell);
-    }
-
     /// <summary>
     /// The GameObject representing the actual door within the game world.
     /// This is the physical door that players can interact with.

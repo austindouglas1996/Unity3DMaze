@@ -18,7 +18,8 @@ public class HallwayMap
         this.IsRoot = isRoot;
     }
 
-    public string GroupId = "None";
+    public Cell rootCell;
+    public string GroupId = string.Empty;
 
     public Vector3Int Position;
     public bool IsRoot = false;
@@ -182,6 +183,19 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private List<HallwayMap> PreMappedCells = new List<HallwayMap>();
     private List<HallwayStairMap> PreMappedStairCells = new List<HallwayStairMap>();
 
+    public Dictionary<GameObject, List<Vector3Int>> DoorMaps = new Dictionary<GameObject, List<Vector3Int>>();
+
+    public List<GameObject> GetDoorCon(Vector3Int i)
+    {
+        List<GameObject> result = new List<GameObject>();
+        foreach (var door in DoorMaps)
+        {
+            if (door.Value.Contains(i))
+                result.Add(door.Key);
+        }
+        return result;
+    }
+
     /// <summary>
     /// Called when the generator is initialized.
     /// </summary>
@@ -221,6 +235,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             await this.MapPathing();
         }
 
+        this.SetGroupIds();
         this.SetGroupCellLeaders();
 
         // Final touchups before deploying.
@@ -262,6 +277,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <exception cref="System.Exception"></exception>
     private void MapRootCells(List<DoorPair> available)
     {
+        int seen = 0;
         foreach (DoorPair pair in available)
         {
             GameObject door = pair.Door;
@@ -298,6 +314,11 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             }
 
             this.CreateMap(position.RoundToInt(), true, pair);
+
+            Cell rootCell = this.Grid[position.RoundToInt()];
+            rootCell.GroupId = $"Hallways{seen}";
+
+            seen++;
         }
     }
 
@@ -351,6 +372,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 if (neighbors.Count() == 0) continue;
 
                 Cell chosenCell = neighbors.Random();
+                chosenCell.GroupId = cell.GroupId;
 
                 currentMap = this.CreateMap(chosenCell.Position, false);
                 currentMap.NameOverride = "ALLEY";
@@ -433,7 +455,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             }
 
             /* I do not know why, and im very mad, but this is a solution
-             * to getting what walls should be visible from an edge case.
+             to getting what walls should be visible from an edge case.
              I spent over 3 hours trying to figure out why randomly
             some walls would break here. I added a lot of debug logic 
             and came all the way back here for it for Visual Studio
@@ -467,47 +489,86 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         return unclean;
     }
 
+    private void SetGroupIds()
+    {
+        List<HallwayMap> rootMaps = this.PreMappedCells.Where(r => r.IsRoot).ToList();
+        List<Cell> visited = new List<Cell>();
+
+        for (int i = 0; i < rootMaps.Count; i++)
+        {
+            HallwayMap root = rootMaps[i];
+            Cell rootCell = this.Grid[root.Position];
+            visited.Add(rootCell);
+
+            SetGroupID(rootCell, rootCell.GroupId, visited);
+        }
+    }
+
+    private void SetGroupID(Cell root, string groupId, List<Cell> visited)
+    {
+        foreach (Cell neighbor in this.Grid.Neighbors(root.Position, 1).Where(r => r.Type == CellType.Hallway))
+        {
+            if (visited.Contains(neighbor))
+                continue;
+            visited.Add(neighbor);
+
+            SetGroupID(neighbor, groupId, visited);
+        }
+
+        root.GroupId = groupId;
+    }
+
+
+
+    /// <summary>
+    /// Go through each root cell and set each hallway cell in a group for pathfinding.
+    /// </summary>
     /// <summary>
     /// Go through each root cell and set each hallway cell in a group for pathfinding.
     /// </summary>
     private void SetGroupCellLeaders()
     {
-        List<Cell> seenCells = new List<Cell>();
         List<HallwayMap> rootMaps = this.PreMappedCells.Where(r => r.IsRoot).ToList();
 
-        for (int i = 0; i < rootMaps.Count; i++) 
+        for (int i = 0; i < rootMaps.Count; i++)
         {
             HallwayMap map = rootMaps[i];
-
-            // Make sure this has not been added to a group yet.
-            if (map.GroupId != "None")
-                continue;
-
-            // Assign the group.
-            map.GroupId = $"HallwayGroup{i}";
 
             // Grab and assign the cell.
             Cell rootCell = Grid[map.Position];
 
-            // Assign the group Id's.
-            SetGroupCell(rootCell, $"HallwayGroup{i}", seenCells);
+            if (!DoorMaps.ContainsKey(map.DoorPair.Door))
+            {
+                DoorMaps.Add(map.DoorPair.Door, new List<Vector3Int>());
+            }
+
+            List<Cell> visited = new List<Cell>();
+            SetGroupCell(rootCell, map.DoorPair.Door, visited);
         }
     }
 
-    private void SetGroupCell(Cell root, string groupId, List<Cell> seen)
+    private void SetGroupCell(Cell root, GameObject door, List<Cell> visited)
     {
-        if (seen.Contains(root))
+        if (visited.Contains(root))
             return;
-        else
-            seen.Add(root);
 
-        root.GroupId = groupId;
+        visited.Add(root);
 
-        foreach (Cell neighbor in this.Grid.Neighbors(root.Position,1).Where(r => r.Type == CellType.Hallway))
+        foreach (Cell neighbor in this.Grid.Neighbors(root.Position, 1).Where(r => r.Type == CellType.Hallway))
         {
-            SetGroupCell(neighbor, groupId, seen);
+            if (visited.Contains(neighbor))
+                continue;
+
+            List<Vector3Int> connects = this.DoorMaps[door];
+            if (!connects.Contains(neighbor.Position))
+            {
+                connects.Add(neighbor.Position);
+            }
+
+            SetGroupCell(neighbor, door, visited);
         }
     }
+
 
     /// <summary>
     /// Create the small details of the maze.
@@ -602,11 +663,12 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 this.Maze.DoorRegistry.SetConnection(map.DoorPair.Door, newHall);
             }
 
+            Cell hallCell = this.Grid[map.Position];
+
             if (!string.IsNullOrEmpty(map.NameOverride))
                 newHall.name = map.NameOverride;
 
-            // Set the cell room.
-            this.Grid[map.Position].Room = newHall;
+            hallCell.Room = newHall;
 
             // Generate.
             await newHall.Generate(map);
