@@ -195,7 +195,10 @@ public class DoorMono : MonoBehaviour
         CurrentRotation = newRotation;
     }
 
-    // Coroutine to shake the door
+    /// <summary>
+    /// Coroutine to shake the door. This is used for things like showing the player it's locked.
+    /// </summary>
+    /// <returns></returns>
     private IEnumerator ShakeDoor()
     {
         Vector3 originalPosition = transform.position;

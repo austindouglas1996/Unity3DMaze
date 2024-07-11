@@ -23,6 +23,9 @@ public class MazeController : MonoBehaviour
     [Tooltip("Generate hallways. NOTE: This depends on Room generation.")]
     public bool GenerateHalls = true;
 
+    [Tooltip("Generate props on room fixtures.")]
+    public bool GenerateProps = true;
+
     [Header("Debug")]
     [Tooltip("Render the pathing cells for the maze grid.")]
     public bool ShowPathingCells = false;

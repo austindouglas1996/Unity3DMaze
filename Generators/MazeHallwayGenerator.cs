@@ -18,6 +18,8 @@ public class HallwayMap
         this.IsRoot = isRoot;
     }
 
+    public int GroupId = 0;
+
     public Vector3Int Position;
     public bool IsRoot = false;
     public bool IsTrap = false;
@@ -335,17 +337,21 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             if (Random.Range(0, 100) > 40) continue;
 
             // How many alleys should we spawn?
-            int distance = Random.Range(3, 11);
+            int distance = Random.Range(1, 5);
+
+            // Current selected cell.
+            HallwayMap currentMap = cell;
 
             for (int i = 0; i < distance; i++)
             {
                 // Grab neighbors that are empty. Continue is there is none.
-                List<Cell> neighbors = this.Grid.Neighbors(cell.Position,1).Where(r => r.Type == CellType.None).ToList();
+                List<Cell> neighbors = this.Grid.Neighbors(currentMap.Position,1).Where(r => r.Type == CellType.None).ToList();
                 if (neighbors.Count() == 0) continue;
 
                 Cell chosenCell = neighbors.Random();
 
-                this.CreateMap(chosenCell.Position, false);
+                currentMap = this.CreateMap(chosenCell.Position, false);
+                currentMap.NameOverride = "ALLEY";
             }
         }
     }

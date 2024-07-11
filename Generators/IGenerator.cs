@@ -7,9 +7,19 @@ using System.Threading.Tasks;
 /// before they have finished. Seems Unity runs functions async by default.
 /// </summary>
 /// <typeparam name="TOutput"></typeparam>
-public interface IGenerator<TOutput> : IGenerate
+public interface IGenerator<TOutput>
     where TOutput : class
 {
+    /// <summary>
+    /// Returns true if <see cref="Generate"/> has been called.
+    /// </summary>
+    public bool GenerateCalled { get; }
+
+    /// <summary>
+    /// Returns true if <see cref="Generate"/> has finished it's function.
+    /// </summary>
+    public bool GenerateFinished { get; }
+
     /// <summary>
     /// Returns the output of <see cref="Generate"/>.
     /// </summary>
