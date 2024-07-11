@@ -45,7 +45,7 @@ public class PathFinding : MonoBehaviour
             // First route the start/destination cell to the closest door cell.
             if (star.Type == CellType.Hallway)
             {
-                Cell startDoorCells = FindPathToClosestDoor(star, bufferTileDistance, visited, path);
+                Cell startDoorCells = FindPathToClosestDoor(star, bufferTileDistance, true, visited, path);
                 if (startDoorCells == null)
                 {
                     Debug.LogWarning($"Pathfinding: Failed to find a star door near {star.Position}");
@@ -58,7 +58,7 @@ public class PathFinding : MonoBehaviour
 
             if (dest.Type == CellType.Hallway)
             {
-                Cell destDoorCells = FindPathToClosestDoor(dest, bufferTileDistance, visited, path);
+                Cell destDoorCells = FindPathToClosestDoor(dest, bufferTileDistance, false, visited, path);
                 if (destDoorCells == null)
                 {
                     Debug.LogWarning($"Pathfinding: Failed to find a dest door near {star.Position}");
@@ -276,7 +276,7 @@ public class PathFinding : MonoBehaviour
     /// <param name="visited"></param>
     /// <param name="path"></param>
     /// <returns></returns>
-    private Cell FindPathToClosestDoor(Cell star, int bufferTileDistance, HashSet<Vector3Int> visited, UniqueStack<Cell> path)
+    private Cell FindPathToClosestDoor(Cell star, int bufferTileDistance, bool IsStartPos, HashSet<Vector3Int> visited, UniqueStack<Cell> path)
     {
         // Make sure this type is a hallway.
         if (star.Type == CellType.Hallway)
@@ -287,14 +287,14 @@ public class PathFinding : MonoBehaviour
 
             // Get all door connections this tile has access to. We want to find
             // the closest one near the position we're looking for. 
-            var connections = this.controller.Hallways.GetDoorCon(star.Position);
+            var connections = this.controller.DoorRegistry.GetCellConnections(star.Position);
             if (connections == null)
             {
                 Debug.LogWarning($"Failed to find door connections for: {star.Position}");
                 return null;
             }
 
-            foreach (var connection in this.controller.Hallways.GetDoorCon(star.Position))
+            foreach (var connection in this.controller.DoorRegistry.GetCellConnections(star.Position))
             {
                 var pair = this.controller.DoorRegistry.Get(connection);
                 if (pair == null) continue;
@@ -316,7 +316,9 @@ public class PathFinding : MonoBehaviour
 
             // The target cell will always be opposite of what we're looking for
             // but just in case, we'll make sure.
-            Cell starRoot = closestDoorPair.BCell;
+            Cell insideCell = closestDoorPair.ACell.Room == star.Room ? closestDoorPair.ACell : closestDoorPair.BCell;
+            Cell outsideCell = closestDoorPair.ACell.Room == star.Room ? closestDoorPair.BCell : closestDoorPair.ACell;
+            Cell starRoot = IsStartPos ? outsideCell : insideCell;
 
             // Find the path to the door.
             var cellPath = DetermineCellPathInRoom2D(star, starRoot, bufferTileDistance, visited);
@@ -503,7 +505,7 @@ public class PathFinding : MonoBehaviour
             }
 
             // Get neighbors using the Neighbors function
-            foreach (var neighbor in controller.Grid.Neighbors(current.Position, 1))
+            foreach (var neighbor in controller.Grid.Neighbors(current, 1))
             {
                 if (neighbor != null && parent.ContainsKey(neighbor) && parent[neighbor] == null)
                 {
@@ -513,7 +515,7 @@ public class PathFinding : MonoBehaviour
             }
         }
 
-        // Reconstruct the path from end to start
+        // Reconstruct the path from start to end
         List<Cell> path = new List<Cell>();
         Cell? step = end;
         while (step != null && step != start)
@@ -522,28 +524,12 @@ public class PathFinding : MonoBehaviour
             step = parent[step];
         }
         path.Add(start);
-
-        // Check if the reconstructed path includes all required cells
-        if (!path.Contains(end) || path.Count < cells.Count)
-        {
-            // Handle the case where not all cells are included in the path
-            // For now, let's log the issue and add missing cells back
-            Debug.Log("Path reconstruction did not include all cells. Adding missing cells back.");
-
-            foreach (var cell in cells)
-            {
-                if (!path.Contains(cell))
-                {
-                    path.Add(cell);
-                }
-            }
-        }
+        path.Reverse();
 
         // Push sorted cells back into the stack
-        for (int i = path.Count - 1; i >= 0; i--)
+        foreach (var cell in path)
         {
-            stack.Push(path[i]);
+            stack.Push(cell);
         }
     }
-
 }

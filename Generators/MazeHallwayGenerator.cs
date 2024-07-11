@@ -183,19 +183,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     private List<HallwayMap> PreMappedCells = new List<HallwayMap>();
     private List<HallwayStairMap> PreMappedStairCells = new List<HallwayStairMap>();
 
-    public Dictionary<GameObject, List<Vector3Int>> DoorMaps = new Dictionary<GameObject, List<Vector3Int>>();
-
-    public List<GameObject> GetDoorCon(Vector3Int i)
-    {
-        List<GameObject> result = new List<GameObject>();
-        foreach (var door in DoorMaps)
-        {
-            if (door.Value.Contains(i))
-                result.Add(door.Key);
-        }
-        return result;
-    }
-
     /// <summary>
     /// Called when the generator is initialized.
     /// </summary>
@@ -537,10 +524,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             // Grab and assign the cell.
             Cell rootCell = Grid[map.Position];
 
-            if (!DoorMaps.ContainsKey(map.DoorPair.Door))
-            {
-                DoorMaps.Add(map.DoorPair.Door, new List<Vector3Int>());
-            }
+            // Add.
+            this.Maze.DoorRegistry.AddCellConnection(map.DoorPair.Door);
 
             List<Cell> visited = new List<Cell>();
             SetGroupCell(rootCell, map.DoorPair.Door, visited);
@@ -559,7 +544,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             if (visited.Contains(neighbor))
                 continue;
 
-            List<Vector3Int> connects = this.DoorMaps[door];
+            List<Vector3Int> connects = this.Maze.DoorRegistry.GetCellConnections(door);
             if (!connects.Contains(neighbor.Position))
             {
                 connects.Add(neighbor.Position);
