@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using OverfortGames.FirstPersonController;
+using System.Net;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -25,6 +26,8 @@ public class MazeController : MonoBehaviour
 
     [Tooltip("Generate props on room fixtures.")]
     public bool GenerateProps = true;
+
+    [SerializeField] private GameObject Player;
 
     [Header("Debug")]
     [Tooltip("Render the pathing cells for the maze grid.")]
@@ -122,6 +125,7 @@ public class MazeController : MonoBehaviour
             go.tag = "Path";
 
             go.AddComponent<CellMono>();
+            go.GetComponent<CellMono>().GroupId = cell.GroupId;
             go.GetComponent<CellMono>().Position = cell.Position;
             go.GetComponent<CellMono>().Room = cell.Room;
             go.GetComponent<CellMono>().Type = cell.Type;
@@ -131,6 +135,9 @@ public class MazeController : MonoBehaviour
         DoorRegistry.Debug();
         GenerateFinished = true;
         this.OnValidate();
+
+        this.Player.GetComponent<FirstPersonController>().Teleport(this.Rooms.Generated[0].transform.position);
+        this.Player.gameObject.SetActive(true);
     }
 
     /// <summary>
@@ -139,6 +146,8 @@ public class MazeController : MonoBehaviour
     /// <returns></returns>
     private async Task DestroyMaze()
     {
+        this.Player.gameObject.SetActive(false);
+
         await this.Rooms.ResetGenerator();
         await this.Hallways.ResetGenerator();
         await this.Items.ResetGenerator();

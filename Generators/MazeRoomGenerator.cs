@@ -109,9 +109,15 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
 
         await Task.Delay(10);
 
-        foreach (RoomMono room in Generated)
+        this.Maze.Grid.ClearAll();
+        for (int i = 0; i < Generated.Count; i++)
         {
-            this.Maze.Grid.SetRoomCells(room, CellType.Room);
+            RoomMono room = Generated[i];
+
+            if (room.MultiFloorRoom)
+                this.Maze.Grid.SetBounds(room.Bounds, room.transform.position.RoundToInt(), CellType.Room, 1000 + i);
+            else
+                this.Maze.Grid.SetRoomCells(room, 1000 + i, CellType.Room);
         }
 
         this.GenerateFinished = true;
@@ -391,13 +397,13 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
 
         if (room.MultiFloorRoom)
         {
-            cells = this.Maze.Grid.SetBounds(room.transform.BoundingBox(), room.transform.position.RoundToInt(), CellType.Room);
+            cells = this.Maze.Grid.SetBounds(room.transform.BoundingBox(), room.transform.position.RoundToInt(), CellType.Room, -1);
             foreach (Cell cell in cells)
                 cell.Room = room;
         }
         else
         {
-            this.Maze.Grid.SetRoomCells(room, CellType.Room);
+            this.Maze.Grid.SetRoomCells(room, -1);
         }
 
         return cells;

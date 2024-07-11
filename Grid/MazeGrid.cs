@@ -113,11 +113,12 @@ public class MazeGrid
     /// <param name="bounds">The size of the </param>
     /// <param name="position"></param>
     /// <param name="type"></param>
-    public List<Cell> SetBounds(Bounds bounds, Vector3Int position, CellType type)
+    public List<Cell> SetBounds(Bounds bounds, Vector3Int position, CellType type, int groupId)
     {
         var cells = this.GetBoundsCells(bounds, position);
         foreach (Cell cell in cells)
         {
+            cell.GroupId = groupId;
             cell.Type = type;
         }
 
@@ -131,7 +132,7 @@ public class MazeGrid
     /// </summary>
     /// <param name="room">The room we should set the bounds for.</param>
     /// <param name="type">The type of cell contained. By default set to Room.</param>
-    public List<Cell> SetRoomCells(RoomMono room, CellType type = CellType.Room)
+    public List<Cell> SetRoomCells(RoomMono room, int groupId, CellType type = CellType.Room)
     {
         if (room == null)
             throw new System.ArgumentException("Room is null.");
@@ -146,6 +147,7 @@ public class MazeGrid
             {
                 Vector3Int currentPosition = floorObject.position.RoundToInt();
                 Cell newCell = this.Set(currentPosition + new Vector3Int(0, 2, 0), type, room);
+                newCell.GroupId = groupId;
                 newBounds.Add(newCell);
             }
         }

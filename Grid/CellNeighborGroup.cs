@@ -91,9 +91,9 @@ public class CellNeighborGroup : IEnumerable<Cell>
         yield return Right;
         yield return Down;
         yield return Left;
-        yield return UpRight;
-        yield return UpLeft;
-        yield return DownRight;
-        yield return DownLeft;
+        //yield return UpRight;
+        //yield return UpLeft;
+        //yield return DownRight;
+        //yield return DownLeft;
     }
 }

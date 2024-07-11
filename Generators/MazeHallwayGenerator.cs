@@ -18,7 +18,7 @@ public class HallwayMap
         this.IsRoot = isRoot;
     }
 
-    public int GroupId = 0;
+    public int GroupId = -1;
 
     public Vector3Int Position;
     public bool IsRoot = false;
@@ -220,6 +220,8 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         {
             await this.MapPathing();
         }
+
+        this.SetGroupCellLeaders();
 
         // Final touchups before deploying.
         this.MapDetails();
@@ -463,6 +465,51 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         }
 
         return unclean;
+    }
+
+    /// <summary>
+    /// Go through each root cell and set each hallway cell in a group for pathfinding.
+    /// </summary>
+    private void SetGroupCellLeaders()
+    {
+        List<Cell> seenCells = new List<Cell>();
+        List<HallwayMap> rootMaps = this.PreMappedCells.Where(r => r.IsRoot).ToList();
+
+        for (int i = 0; i < rootMaps.Count; i++) 
+        {
+            HallwayMap map = rootMaps[i];
+
+            // Make sure this has not been added to a group yet.
+            if (map.GroupId != -1)
+                continue;
+
+            // Assign the group.
+            map.GroupId = i;
+
+            // Grab and assign the cell.
+            Cell rootCell = Grid[map.Position];
+
+            // Assign the group Id's.
+            SetGroupCell(rootCell, i, seenCells);
+        }
+    }
+
+    private void SetGroupCell(Cell root, int groupId, List<Cell> seen)
+    {
+        if (seen.Contains(root))
+            return;
+        else
+            seen.Add(root);
+
+        root.GroupId = groupId;
+
+        foreach (Cell neighbor in this.Grid.Neighbors(root.Position,1)
+            // Only go through the first 4 elements. (Up,Right,Down,Left)
+            .Take(4)
+            .Where(r => r.Type == CellType.Hallway))
+        {
+            SetGroupCell(neighbor, groupId, seen);
+        }
     }
 
     /// <summary>

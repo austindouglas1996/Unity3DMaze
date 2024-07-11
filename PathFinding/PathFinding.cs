@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 
 [RequireComponent(typeof(MazeController))] 
@@ -36,9 +37,64 @@ public class PathFinding : MonoBehaviour
         // Set the buffer distance. (Distance / CellSize) * CellSize
         int bufferTileDistance = ((DistanceHelper.CalculateDistance(destTilePos, starTilePos) / 4) * 4) + 8;
 
-        // Are we trying to path find in the same room? If so the logic is not as complicated
-        // as trying to travel across rooms.
-        path = DetermineCellPathInRoom2D(star, dest, bufferTileDistance, visited);
+        // This is not in the same room. Get possible routes to room.
+        if (star.GroupId != dest.GroupId)
+        {
+            // Uses a greedy Breadth-First-Search to determine the cheapest
+            // path from A room to B room. Returns the door object and the side of the room it should be in.
+            var roomTravels = DeterminePathToRoom(star.Room, dest.Room);
+            if (roomTravels == null)
+                return null;
+
+            foreach (var roomTravel in roomTravels)
+            {
+                DoorPair pair = this.controller.DoorRegistry.Get(roomTravel.Item2);
+                if (pair == null)
+                    throw new ArgumentNullException("During pathfinding across rooms. We failed to find a door causing a complete failure.");
+
+                Cell doorCell = this.controller.Grid.Find(pair.Door.transform.position.RoundToInt(), new Vector3(2f, 2f, 2f));
+
+                // This cell is not the correct cell, but we know the cell is on the otherside of the door.
+                // There is a 50% chance this will occurr.
+                if (doorCell.Room != roomTravel.Item1)
+                {
+                    // Find the direction the door is aiming in to find the correct cell.
+                    SpatialOrientation doorDirection = pair.Door.GetComponent<RoomFixtureMono>().Direction;
+                    doorCell = this.controller.Grid.Neighbor(doorCell, doorDirection);
+                }
+
+                // Create path to this cell.
+                var cellPaths = DetermineCellPathInRoom2D(star, doorCell, bufferTileDistance, visited);
+                if (cellPaths == null)
+                    return null;
+
+                // Reverse.
+                cellPaths.Reverse();
+
+                // Add the new cells.
+                for (int i = 0; i < cellPaths.Count; i++)
+                {
+                    Cell cell = cellPaths.ElementAt(i);
+
+                    // Our DetermineCellPath function does not know to not include the start.
+                    // We will forgive trying to add the first, but after that we want to throw
+                    // exceptions as we know it's a real error.
+                    if (path.Contains(cell))
+                        continue;
+
+                    path.Push(cell);
+                }
+
+                // Set new current.
+                star = doorCell;
+            }
+        }
+        else
+        {
+            // Are we trying to path find in the same room? If so the logic is not as complicated
+            // as trying to travel across rooms.
+            path = DetermineCellPathInRoom2D(star, dest, bufferTileDistance, visited);
+        }
 
         if (path != null)
             OrganizeStack(path, dest, initialStart);
@@ -58,6 +114,11 @@ public class PathFinding : MonoBehaviour
     private UniqueStack<Cell> DetermineCellPathInRoom2D(Cell star, Cell dest, int maxTileBuffer, HashSet<Vector3Int> visited)
     {
         UniqueStack<Cell> path = new UniqueStack<Cell>();
+
+        if (star.Position == dest.Position)
+        {
+            throw new InvalidOperationException("Pathfinding: You just tried to path find from the same start and destination.");
+        }
 
         // Set initial cell.
         Cell previous = null;
@@ -131,10 +192,9 @@ public class PathFinding : MonoBehaviour
 
         foreach (Cell next in controller.Grid.Neighbors(curr))
         {
-            int distance = DistanceHelper.CalculateDistance(next.Position, dest.Position); 
-
-            bool BothAreHallways = (next.Type == CellType.Hallway && curr.Type == CellType.Hallway);
-            bool BothAreDoors = (next.Type == CellType.Door && curr.Type == CellType.Door) || BothAreHallways;
+            int distance = DistanceHelper.CalculateDistance(next.Position, dest.Position);
+            bool BothSameGroupId = (next.GroupId == curr.GroupId);
+            bool BothAreDoors = (next.Type == CellType.Door && curr.Type == CellType.Door) || BothSameGroupId;
 
             if (visitedCells.Contains(next.Position))
                 continue;
