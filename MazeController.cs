@@ -220,6 +220,10 @@ public class MazeController : MonoBehaviour
             directNeighborCell.Type = CellType.Door;
             directNeighborCell.Room = doors.Value.GetOtherRoom(existingCell.Room);
 
+            // Set cells.
+            doors.Value.ACell = doors.Value.A == existingCell.Room ? existingCell : directNeighborCell;
+            doors.Value.BCell = doors.Value.B == existingCell.Room ? existingCell : directNeighborCell;
+
             // Debug cubes.
             Instantiate(this.DoorPathCube, existingCell.Position, Quaternion.identity, this.DoorPathContainer.transform);
             Instantiate(this.DoorPathCube, directNeighborCell.Position, Quaternion.identity, this.DoorPathContainer.transform);

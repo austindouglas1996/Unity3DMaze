@@ -34,6 +34,18 @@ public class DoorPair
     public GameObject Door;
 
     /// <summary>
+    /// Returns the <see cref="Cell"/> that the door in <see cref="A"/> room is contained in.
+    /// </summary>
+    /// <remarks>This is added in <see cref="MazeController.CleanupDoors"/></remarks>
+    public Cell ACell;
+
+    /// <summary>
+    /// Returns the <see cref="Cell"/> that the door in <see cref="B"/> roo mis contained in.
+    /// </summary>
+    /// <remarks>This is added in <see cref="MazeController.CleanupDoors"/></remarks>
+    public Cell BCell;
+
+    /// <summary>
     /// Gets the door for this pair.
     /// </summary>
     public RoomMono A;
@@ -264,6 +276,15 @@ public class DoorRegistry : MonoBehaviour
             mono.A = room.Value.A;
             mono.B = room.Value.B == null ? null : room.Value.B;
             mono.Door = room.Key == null ? null : room.Key;
+
+            CellMono aCell = mono.AddComponent<CellMono>();
+            CellMono bCell = mono.AddComponent<CellMono>();
+
+            aCell.Set(room.Value.ACell);
+            bCell.Set(room.Value.BCell);
+
+            mono.ACell = aCell;
+            mono.BCell = bCell;
 
             if (level == 2)
             {

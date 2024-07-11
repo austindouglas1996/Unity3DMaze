@@ -8,6 +8,6 @@ public class Cell
 {
     public CellType Type { get; set; }
     public Vector3Int Position { get; set; }
-    public int GroupId { get; set; } = -1;
+    public string GroupId { get; set; } = "None";
     public RoomMono Room { get; set; }
 }

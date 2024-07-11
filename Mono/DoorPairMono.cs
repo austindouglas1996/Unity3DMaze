@@ -13,6 +13,8 @@ public class DoorPairMono : MonoBehaviour
         this.Door = doorPair.Door;
         this.A = doorPair.A;
         this.B = doorPair.B;
+        this.ACell = new CellMono(doorPair.ACell);
+        this.BCell = new CellMono(doorPair.BCell);
     }
 
     /// <summary>
@@ -30,4 +32,14 @@ public class DoorPairMono : MonoBehaviour
     /// The RoomMono representing the second room connected to the door.
     /// </summary>
     [SerializeField] public RoomMono B;
+
+    /// <summary>
+    /// The <see cref="CellMono"/> representing a <see cref="Cell"/> for the A door.
+    /// </summary>
+    [SerializeField] public CellMono ACell;
+
+    /// <summary>
+    /// The <see cref="CellMono"/> representing a <see cref="Cell"/> for the B door.
+    /// </summary>
+    [SerializeField] public CellMono BCell;
 }

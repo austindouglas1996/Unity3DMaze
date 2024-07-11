@@ -18,7 +18,7 @@ public class HallwayMap
         this.IsRoot = isRoot;
     }
 
-    public int GroupId = -1;
+    public string GroupId = "None";
 
     public Vector3Int Position;
     public bool IsRoot = false;
@@ -480,21 +480,21 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             HallwayMap map = rootMaps[i];
 
             // Make sure this has not been added to a group yet.
-            if (map.GroupId != -1)
+            if (map.GroupId != "None")
                 continue;
 
             // Assign the group.
-            map.GroupId = i;
+            map.GroupId = $"HallwayGroup{i}";
 
             // Grab and assign the cell.
             Cell rootCell = Grid[map.Position];
 
             // Assign the group Id's.
-            SetGroupCell(rootCell, i, seenCells);
+            SetGroupCell(rootCell, $"HallwayGroup{i}", seenCells);
         }
     }
 
-    private void SetGroupCell(Cell root, int groupId, List<Cell> seen)
+    private void SetGroupCell(Cell root, string groupId, List<Cell> seen)
     {
         if (seen.Contains(root))
             return;
@@ -503,10 +503,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
         root.GroupId = groupId;
 
-        foreach (Cell neighbor in this.Grid.Neighbors(root.Position,1)
-            // Only go through the first 4 elements. (Up,Right,Down,Left)
-            .Take(4)
-            .Where(r => r.Type == CellType.Hallway))
+        foreach (Cell neighbor in this.Grid.Neighbors(root.Position,1).Where(r => r.Type == CellType.Hallway))
         {
             SetGroupCell(neighbor, groupId, seen);
         }
