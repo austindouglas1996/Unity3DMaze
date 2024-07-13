@@ -104,8 +104,8 @@ public class CharacterControllerWithGravity : MonoBehaviour
 
     private void MoveCharacter()
     {
-        float distance = Vector3.Distance(transform.position, MovingTo);
-        Vector3 direction = (this.MovingTo - transform.position).normalized;
+        float distance = Vector3.Distance(transform.position.RoundToInt(), MovingTo);
+        Vector3 direction = (this.MovingTo - transform.position.RoundToInt());
         direction.y = 0;
 
         Vector3 movement = direction * walkSpeed * Time.deltaTime;
@@ -115,13 +115,13 @@ public class CharacterControllerWithGravity : MonoBehaviour
 
         if (distance > 1f)
         {
-            transform.LookAt(new Vector3(MovingTo.x, transform.position.y, MovingTo.z));
+            transform.LookAt(new Vector3(MovingTo.x, transform.position.RoundToInt().y, MovingTo.z));
         }
     }
 
     private void UpdateAnimator()
     {
-        float distance = Vector3.Distance(transform.position, MovingTo);
+        float distance = Vector3.Distance(transform.position.RoundToInt(), MovingTo);
 
         if (distance > 1f)
         {

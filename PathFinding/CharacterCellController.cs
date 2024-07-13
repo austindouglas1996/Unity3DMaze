@@ -1,11 +1,16 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
+using VHierarchy.Libs;
 
 [RequireComponent(typeof(CharacterControllerWithGravity))]
 public class CharacterCellController : MonoBehaviour
 {
     [Tooltip("Helps with determining paths for characters in the grid.")]
-    [SerializeField] private GridCellPathFinder PathFinder;
+    [SerializeField] public GridCellPathFinder PathFinder;
+
+    [Tooltip("Debug cell")]
+    [SerializeField] private GameObject DebugCube;
 
     /// <summary>
     /// Helps with controlling where this character will go.
@@ -21,6 +26,7 @@ public class CharacterCellController : MonoBehaviour
     /// A list of cell moving instructions.
     /// </summary>
     private List<Cell> RemainingMoveInstructions = new List<Cell>();
+    private List<GameObject> DebugCells = new List<GameObject>();
 
     /// <summary>
     /// The current cell we're working on moving to.
@@ -34,6 +40,26 @@ public class CharacterCellController : MonoBehaviour
     public void MoveToCell(Cell cell)
     {
         this.RemainingMoveInstructions = PathFinder.FindPath(GetCurrentCell(), cell);
+
+        if (this.RemainingMoveInstructions != null)
+        {
+            if (this.DebugCells.Count > 0)
+            {
+                foreach (GameObject go in this.DebugCells)
+                {
+                    go.Destroy();
+                }
+
+                this.DebugCells.Clear();
+            }
+
+            foreach (Cell dCell in this.RemainingMoveInstructions)
+            {
+                GameObject go = Instantiate(DebugCube, dCell.Position, Quaternion.identity, this.transform.parent);
+                this.DebugCells.Add(go);
+            }
+        }
+
         this.GetNextCell();
     }
 
@@ -53,7 +79,8 @@ public class CharacterCellController : MonoBehaviour
         if (IsMoving)
         {
             // Have we reached our destination?
-            if (Vector3.Distance(this.transform.position, MovingTo.Position) > 0.001f)
+            var distance = Vector3.Distance(this.transform.position, (MovingTo.Position - new Vector3Int(0,2,0)));
+            if (distance < 0.8f)
             {
                 GetNextCell();
             }
@@ -83,6 +110,8 @@ public class CharacterCellController : MonoBehaviour
         this.MovingTo = this.RemainingMoveInstructions[0];
         this.RemainingMoveInstructions.RemoveAt(0);
 
-        this.Controller.MoveTo(this.MovingTo.Position);
+        this.Controller.MoveTo(this.MovingTo.Position - new Vector3Int(0,2,0));
+
+        this.IsMoving = true;
     }
 }
