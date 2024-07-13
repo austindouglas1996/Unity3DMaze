@@ -93,7 +93,7 @@ public class CharacterCellController : MonoBehaviour
     /// <returns></returns>
     private Cell GetCurrentCell()
     {
-        return this.PathFinder.Grid.Find(this.transform.position.RoundToInt(), new Vector3(4f, 4f, 4f));
+        return this.PathFinder.Grid.Find(this.transform.position.RoundToInt(), new Vector3(2f, 4f, 2f));
     }
 
     /// <summary>
