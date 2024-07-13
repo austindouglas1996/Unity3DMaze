@@ -15,11 +15,19 @@ public class CellMono : MonoBehaviour
     [SerializeField] public CellType Type;
     [SerializeField] public RoomMono Room;
 
+    [SerializeField] public bool Up;
+    [SerializeField] public bool Right;
+    [SerializeField] public bool Down;
+    [SerializeField] public bool Left;
+
     public void Set(Cell cell)
     {
-        this.GroupId = cell.GroupId;
         this.Position = cell.Position;
         this.Type = cell.Type;
         this.Room = cell.Room;
+        this.Up = cell.IsWallVisible(SpatialOrientation.Up);
+        this.Right = cell.IsWallVisible(SpatialOrientation.Right);
+        this.Down = cell.IsWallVisible(SpatialOrientation.Down);
+        this.Left = cell.IsWallVisible(SpatialOrientation.Left);
     }
 }

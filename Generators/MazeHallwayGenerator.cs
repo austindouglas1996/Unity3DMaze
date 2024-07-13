@@ -18,9 +18,6 @@ public class HallwayMap
         this.IsRoot = isRoot;
     }
 
-    public Cell rootCell;
-    public string GroupId = string.Empty;
-
     public Vector3Int Position;
     public bool IsRoot = false;
     public bool IsTrap = false;
@@ -222,9 +219,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             await this.MapPathing();
         }
 
-        this.SetGroupIds();
-        this.SetGroupCellLeaders();
-
         // Final touchups before deploying.
         this.MapDetails();
 
@@ -303,7 +297,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             this.CreateMap(position.RoundToInt(), true, pair);
 
             Cell rootCell = this.Grid[position.RoundToInt()];
-            rootCell.GroupId = $"Hallways{seen}";
 
             seen++;
         }
@@ -359,8 +352,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 if (neighbors.Count() == 0) continue;
 
                 Cell chosenCell = neighbors.Random();
-                chosenCell.GroupId = cell.GroupId;
-
                 currentMap = this.CreateMap(chosenCell.Position, false);
                 currentMap.NameOverride = "ALLEY";
             }
@@ -476,85 +467,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         return unclean;
     }
 
-    private void SetGroupIds()
-    {
-        List<HallwayMap> rootMaps = this.PreMappedCells.Where(r => r.IsRoot).ToList();
-        List<Cell> visited = new List<Cell>();
-
-        for (int i = 0; i < rootMaps.Count; i++)
-        {
-            HallwayMap root = rootMaps[i];
-            Cell rootCell = this.Grid[root.Position];
-            visited.Add(rootCell);
-
-            SetGroupID(rootCell, rootCell.GroupId, visited);
-        }
-    }
-
-    private void SetGroupID(Cell root, string groupId, List<Cell> visited)
-    {
-        foreach (Cell neighbor in this.Grid.Neighbors(root.Position, 1).Where(r => r.Type == CellType.Hallway))
-        {
-            if (visited.Contains(neighbor))
-                continue;
-            visited.Add(neighbor);
-
-            SetGroupID(neighbor, groupId, visited);
-        }
-
-        root.GroupId = groupId;
-    }
-
-
-
-    /// <summary>
-    /// Go through each root cell and set each hallway cell in a group for pathfinding.
-    /// </summary>
-    /// <summary>
-    /// Go through each root cell and set each hallway cell in a group for pathfinding.
-    /// </summary>
-    private void SetGroupCellLeaders()
-    {
-        List<HallwayMap> rootMaps = this.PreMappedCells.Where(r => r.IsRoot).ToList();
-
-        for (int i = 0; i < rootMaps.Count; i++)
-        {
-            HallwayMap map = rootMaps[i];
-
-            // Grab and assign the cell.
-            Cell rootCell = Grid[map.Position];
-
-            // Add.
-            this.Maze.DoorRegistry.AddCellConnection(map.DoorPair.Door);
-
-            List<Cell> visited = new List<Cell>();
-            SetGroupCell(rootCell, map.DoorPair.Door, visited);
-        }
-    }
-
-    private void SetGroupCell(Cell root, GameObject door, List<Cell> visited)
-    {
-        if (visited.Contains(root))
-            return;
-
-        visited.Add(root);
-
-        foreach (Cell neighbor in this.Grid.Neighbors(root.Position, 1).Where(r => r.Type == CellType.Hallway))
-        {
-            if (visited.Contains(neighbor))
-                continue;
-
-            List<Vector3Int> connects = this.Maze.DoorRegistry.GetCellConnections(door);
-            if (!connects.Contains(neighbor.Position))
-            {
-                connects.Add(neighbor.Position);
-            }
-
-            SetGroupCell(neighbor, door, visited);
-        }
-    }
-
-
     /// <summary>
     /// Create the small details of the maze.
     /// </summary>
@@ -652,6 +564,23 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
 
             if (!string.IsNullOrEmpty(map.NameOverride))
                 newHall.name = map.NameOverride;
+
+            hallCell.SetWallVisibility(SpatialOrientation.Up, map.UpV);
+            hallCell.SetWallVisibility(SpatialOrientation.Right, map.RightV);
+            hallCell.SetWallVisibility(SpatialOrientation.Left, map.LeftV);
+            hallCell.SetWallVisibility(SpatialOrientation.Down, map.BottomV);
+
+            if (!map.IsRoot)
+            {
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Up).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Up, true);
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Right).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Right, true);
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Left).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Left, true);
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Down).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Down, true);
+            }
 
             hallCell.Room = newHall;
 

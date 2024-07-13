@@ -17,32 +17,33 @@ using UnityEngine;
 public enum SpatialOrientation
 {
     [Tooltip("Nothing. Used as a default option.")]
-    None = 0,
-
-    [Tooltip("Facing in the positive X direction (right).")]
-    Right = 1,
+    None = 0, 
 
     [Tooltip("Facing in the negative X direction (left).")]
-    Left = 2,
+    Left = 1 << 0, // 1
 
     [Tooltip("Facing in the positive Z direction (up).")]
-    Up = 4,
+    Up = 1 << 1, // 2
+
+    [Tooltip("Facing in the positive X direction (right).")]
+    Right = 1 << 2, // 4
 
     [Tooltip("Facing in the negative Z direction (down).")]
-    Down = 8,
+    Down = 1 << 3, // 8
 
     [Tooltip("Facing diagonally up and right.")]
-    UpRight = Up | Right,
+    UpRight = Up | Right, // 2 | 4 = 6
 
     [Tooltip("Facing diagonally up and left.")]
-    UpLeft = Up | Left,
+    UpLeft = Up | Left, // 2 | 1 = 3
 
     [Tooltip("Facing diagonally down and right.")]
-    DownRight = Down | Right,
+    DownRight = Down | Right, // 8 | 4 = 12
 
     [Tooltip("Facing diagonally down and left.")]
-    DownLeft = Down | Left
+    DownLeft = Down | Left // 8 | 1 = 9
 }
+
 
 /// <summary>
 /// Helper methods for handling <see cref="SpatialOrientation"/>.

@@ -138,6 +138,16 @@ public class MazeGrid
 
         List<Cell> newBounds = new List<Cell>();
 
+        List<Transform> wallObjects = new List<Transform>();
+        Transform[] AllObjects = room.GetComponentsInChildren<Transform>(true);
+        foreach (Transform obj in AllObjects)
+        {
+            if (obj.gameObject.layer == LayerMask.NameToLayer("Wall") || obj.gameObject.layer == LayerMask.NameToLayer("Door"))
+            {
+                wallObjects.Add(obj);
+            }
+        }
+
         // Get all floor objects within the room
         Transform[] floorObjects = room.GetComponentsInChildren<Transform>(true);
         foreach (Transform floorObject in floorObjects)
@@ -147,6 +157,44 @@ public class MazeGrid
                 Vector3Int currentPosition = floorObject.position.RoundToInt();
                 Cell newCell = this.Set(currentPosition + new Vector3Int(0, 2, 0), type, room);
                 newBounds.Add(newCell);
+
+                newCell.SetWallVisibility(SpatialOrientation.Up, false);
+                newCell.SetWallVisibility(SpatialOrientation.Down, false);
+                newCell.SetWallVisibility(SpatialOrientation.Right, false);
+                newCell.SetWallVisibility(SpatialOrientation.Left, false);
+
+                foreach (Transform wallObject in wallObjects)
+                {
+                    Vector3 direction = (wallObject.position - floorObject.position);
+                    if (Math.Abs(direction.x) > 2 || Math.Abs(direction.y) > 2 || Math.Abs(direction.z) > 2)
+                        continue;
+
+                    RoomFixtureMono wallRf = wallObject.GetComponent<RoomFixtureMono>();
+
+                    // This is a door.
+                    if (wallObject.gameObject.layer == 6)
+                    {
+                        continue;
+                    }
+
+                    if (direction.x == 2)
+                    {
+                        newCell.SetWallVisibility(SpatialOrientation.Up, true);
+                    }
+                    else if (direction.z == 2)
+                    {
+                        newCell.SetWallVisibility(SpatialOrientation.Left, true);
+                    }
+
+                    if (direction.x == -2)
+                    {
+                        newCell.SetWallVisibility(SpatialOrientation.Down, true);
+                    }
+                    else if (direction.z == -2)
+                    {
+                        newCell.SetWallVisibility(SpatialOrientation.Right, true);
+                    }
+                }
             }
         }
 
