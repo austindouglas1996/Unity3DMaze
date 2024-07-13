@@ -8,13 +8,6 @@ using UnityEngine;
 /// </summary>
 public class DoorPairMono : MonoBehaviour
 {
-    public DoorPairMono(DoorPair doorPair)
-    {
-        this.Door = doorPair.Door;
-        this.A = doorPair.A;
-        this.B = doorPair.B;
-    }
-
     /// <summary>
     /// The GameObject representing the actual door within the game world.
     /// This is the physical door that players can interact with.
@@ -30,4 +23,14 @@ public class DoorPairMono : MonoBehaviour
     /// The RoomMono representing the second room connected to the door.
     /// </summary>
     [SerializeField] public RoomMono B;
+
+    /// <summary>
+    /// The <see cref="CellMono"/> representing a <see cref="Cell"/> for the A door.
+    /// </summary>
+    [SerializeField] public CellMono ACell;
+
+    /// <summary>
+    /// The <see cref="CellMono"/> representing a <see cref="Cell"/> for the B door.
+    /// </summary>
+    [SerializeField] public CellMono BCell;
 }

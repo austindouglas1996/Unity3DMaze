@@ -50,9 +50,6 @@ public class DoorMono : MonoBehaviour
     [Tooltip("Related doors, this is literally only for handling double doors to make sure they play nice.")]
     [SerializeField] public List<DoorMono> RelatedDoors = new List<DoorMono>();
 
-    [Tooltip("Is the door locked and unable to be opened.")]
-    [SerializeField] public bool IsLocked = true;
-
     /// <summary>
     /// The current door rotation.
     /// </summary>
@@ -71,7 +68,7 @@ public class DoorMono : MonoBehaviour
     /// <summary>
     /// The current state of the door. Before I was using a bool for IsOpen which was SUPER CONFUSING
     /// </summary>
-    private DoorState CurrentState = DoorState.Closed;
+    public DoorState CurrentState = DoorState.Closed;
 
     /// <summary>
     /// The delay remaining between when the player can touch the door.
@@ -85,7 +82,13 @@ public class DoorMono : MonoBehaviour
     /// <returns></returns>
     public void ChangeDoorLockState(bool newState)
     {
-        this.IsLocked = newState;
+        if (this.CurrentState == DoorState.Open)
+            return;
+
+        if (newState)
+            this.CurrentState = DoorState.Locked;
+        else
+            this.CurrentState = DoorState.Closed;
     }
 
     /// <summary>
@@ -104,14 +107,13 @@ public class DoorMono : MonoBehaviour
         if (CurrentState == DoorState.Closing || CurrentState == DoorState.Opening)
             return false;
 
-        if (CurrentState == DoorState.Closed)
+        if (CurrentState == DoorState.Locked)
         {
-            if (IsLocked)
-            {
-                StartCoroutine(ShakeDoor());
-                return false;
-            }
-
+            StartCoroutine(ShakeDoor());
+            return false;
+        }
+        else if (CurrentState == DoorState.Closed)
+        {
             CurrentState = DoorState.Opening;
         }
         else if (CurrentState == DoorState.Open)

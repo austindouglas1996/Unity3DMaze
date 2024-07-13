@@ -34,6 +34,18 @@ public class DoorPair
     public GameObject Door;
 
     /// <summary>
+    /// Returns the <see cref="Cell"/> that the door in <see cref="A"/> room is contained in.
+    /// </summary>
+    /// <remarks>This is added in <see cref="MazeController.CleanupDoors"/></remarks>
+    public Cell ACell;
+
+    /// <summary>
+    /// Returns the <see cref="Cell"/> that the door in <see cref="B"/> roo mis contained in.
+    /// </summary>
+    /// <remarks>This is added in <see cref="MazeController.CleanupDoors"/></remarks>
+    public Cell BCell;
+
+    /// <summary>
     /// Gets the door for this pair.
     /// </summary>
     public RoomMono A;
@@ -54,6 +66,23 @@ public class DoorPair
             return B;
         else if (currentRoom == B)
             return A;
+        else
+            Debug.Log("The specified room is not connected to this door.");
+
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieve the other rooms cell.
+    /// </summary>
+    /// <param name="currentRoom"></param>
+    /// <returns></returns>
+    public Cell GetOtherCell(RoomMono currentRoom)
+    {
+        if (currentRoom == A)
+            return BCell;
+        else if (currentRoom == B)
+            return ACell;
         else
             Debug.Log("The specified room is not connected to this door.");
 
@@ -91,6 +120,11 @@ public class DoorRegistry : MonoBehaviour
     private Dictionary<GameObject, DoorPair> doors = new Dictionary<GameObject, DoorPair>();
 
     /// <summary>
+    /// A dictionary of doors along with their cell positions for easier <see cref="MazeGrid"/> and <see cref="PathFinding"/>.
+    /// </summary>
+    private Dictionary<GameObject, List<Vector3Int>> doorConnections = new Dictionary<GameObject, List<Vector3Int>>();
+
+    /// <summary>
     /// Do we need to update the current collection?
     /// </summary>
     private bool updateRequired = false;
@@ -120,6 +154,15 @@ public class DoorRegistry : MonoBehaviour
 
         updateRequired = true;
         return newPair;
+    }
+
+    /// <summary>
+    /// Add a new set of cell connections
+    /// </summary>
+    /// <param name="door"></param>
+    public void AddCellConnection(GameObject door)
+    {
+        this.doorConnections.Add(door, new List<Vector3Int>());
     }
 
     /// <summary>
@@ -168,6 +211,37 @@ public class DoorRegistry : MonoBehaviour
     public List<DoorPair> Get(RoomMono room)
     {
         return doors.Values.Where(r => r.CheckConnection(room)).ToList();
+    }
+
+    /// <summary>
+    /// Grab a list of <see cref="Cell"/> connection points with a door.
+    /// </summary>
+    /// <param name="door"></param>
+    /// <returns></returns>
+    public List<Vector3Int> GetCellConnections(GameObject door)
+    {
+        if (!doors.ContainsKey(door)) return null;
+        return this.doorConnections[door];
+    }
+
+    /// <summary>
+    /// Retrieve <see cref="Cell"/> connections for a door object.
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <returns></returns>
+    public List<GameObject> GetCellConnections(Vector3Int pos)
+    {
+        List<GameObject> results = new List<GameObject>();
+
+        foreach (var kv in doorConnections)
+        {
+            if (kv.Value.Contains(pos))
+            {
+                results.Add(kv.Key);
+            }
+        }
+
+        return results;
     }
 
     /// <summary>
@@ -254,6 +328,21 @@ public class DoorRegistry : MonoBehaviour
     }
 
     /// <summary>
+    /// Set the connection of a <see cref="Cell"/> to a specific door.
+    /// </summary>
+    /// <param name="door"></param>
+    /// <param name=""></param>
+    public void SetCellConnection(GameObject door, Vector3Int pos)
+    {
+        if (!this.doorConnections.ContainsKey(door))
+        {
+            this.doorConnections.Add(door, new List<Vector3Int>());
+        }
+
+        this.doorConnections[door].Add(pos);
+    }
+
+    /// <summary>
     /// Create a <see cref="DoorPairMono"/> object on known doors for visual help in finding connection issues.
     /// </summary>
     public void Debug(int level = 1)
@@ -264,6 +353,15 @@ public class DoorRegistry : MonoBehaviour
             mono.A = room.Value.A;
             mono.B = room.Value.B == null ? null : room.Value.B;
             mono.Door = room.Key == null ? null : room.Key;
+
+            CellMono aCell = mono.AddComponent<CellMono>();
+            CellMono bCell = mono.AddComponent<CellMono>();
+
+            aCell.Set(room.Value.ACell);
+            bCell.Set(room.Value.BCell);
+
+            mono.ACell = aCell;
+            mono.BCell = bCell;
 
             if (level == 2)
             {

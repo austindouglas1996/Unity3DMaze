@@ -97,6 +97,13 @@ public class RoomFixtureMono : MonoBehaviour
     [Tooltip("The size of the prop for this tile.")]
     [SerializeField] public PropSize Size = PropSize.Any;
 
+    [Header("Floor options")]
+    [Header("Wall Visibility options")]
+    [SerializeField] public SpatialOrientation DoorDirection = SpatialOrientation.None;
+    [SerializeField] public bool WallUp = false;
+    [SerializeField] public bool WallRight = false;
+    [SerializeField] public bool WallDown = false;
+    [SerializeField] public bool WallLeft = false;
 
     [Header("Door options")]
     [Tooltip("Can this door be completely removed when connected to another room?")]

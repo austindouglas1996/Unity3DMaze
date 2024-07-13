@@ -8,7 +8,6 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(MazeRoomGenerator))]
 [RequireComponent(typeof(MazeHallwayGenerator))]
 [RequireComponent(typeof(MazeItemGenerator))]
-[RequireComponent (typeof(PathFinding))]
 public class MazeController : MonoBehaviour
 {
     /// <summary>
@@ -72,11 +71,6 @@ public class MazeController : MonoBehaviour
     public MazeItemGenerator Items { get; private set; }
 
     /// <summary>
-    /// Helps with pathfinding around the maze.
-    /// </summary>
-    public PathFinding PathFinder { get; private set; }
-
-    /// <summary>
     /// Helps with path-finding and keeping the positions of rooms/hallways.
     /// </summary>
     public MazeGrid Grid;
@@ -94,7 +88,6 @@ public class MazeController : MonoBehaviour
         this.Rooms = this.GetComponent<MazeRoomGenerator>();
         this.Hallways = this.GetComponent<MazeHallwayGenerator>();
         this.Items = this.GetComponent<MazeItemGenerator>();
-        this.PathFinder = this.GetComponent<PathFinding>();
 
         await this.CreateMaze();
     }
@@ -124,11 +117,8 @@ public class MazeController : MonoBehaviour
             GameObject go = Instantiate(this.PathCellCube, cell.Position, Quaternion.identity, this.PathContainer.transform);
             go.tag = "Path";
 
-            go.AddComponent<CellMono>();
-            go.GetComponent<CellMono>().GroupId = cell.GroupId;
-            go.GetComponent<CellMono>().Position = cell.Position;
-            go.GetComponent<CellMono>().Room = cell.Room;
-            go.GetComponent<CellMono>().Type = cell.Type;
+            CellMono cMono = go.AddComponent<CellMono>();
+            cMono.Set(cell);
         }
 
 
@@ -219,6 +209,10 @@ public class MazeController : MonoBehaviour
             existingCell.Type = CellType.Door;
             directNeighborCell.Type = CellType.Door;
             directNeighborCell.Room = doors.Value.GetOtherRoom(existingCell.Room);
+
+            // Set cells.
+            doors.Value.ACell = doors.Value.A == existingCell.Room ? existingCell : directNeighborCell;
+            doors.Value.BCell = doors.Value.B == existingCell.Room ? existingCell : directNeighborCell;
 
             // Debug cubes.
             Instantiate(this.DoorPathCube, existingCell.Position, Quaternion.identity, this.DoorPathContainer.transform);

@@ -115,11 +115,6 @@ public class RoomMono : MonoBehaviour
     public List<GameObject> Doors = new List<GameObject>();
 
     /// <summary>
-    /// Contains a list of room bounds.
-    /// </summary>
-    public List<Cell> GridBounds = new List<Cell>();
-
-    /// <summary>
     /// Helpful for sometimes we can <see cref="Doors"/> before <see cref="GenerateDoors"/> called.
     /// </summary>
     public bool GenerateCalled = false;
@@ -377,6 +372,8 @@ public class RoomMono : MonoBehaviour
                         newObject = Instantiate(Style.WallsPrefabs.Random(), parent.position, parent.rotation);
                         break;
                 }
+
+                newObject.layer = 7;
                 break;
             case RoomFixtureIdentityType.Window:
                 newObject = Instantiate(Style.WindowsPrefabs.Random(), parent.position, parent.rotation);
@@ -386,6 +383,7 @@ public class RoomMono : MonoBehaviour
                 break;
             case RoomFixtureIdentityType.Door:
                 newObject = Instantiate(Style.DoorsPrefabs.Random(), parent.position, parent.rotation);
+                newObject.layer = 6;
                 break;
             case RoomFixtureIdentityType.Roof:
                 newObject = Instantiate(Style.RoofPrefabs.Random(), parent.position, parent.rotation);

@@ -18,8 +18,6 @@ public class HallwayMap
         this.IsRoot = isRoot;
     }
 
-    public int GroupId = -1;
-
     public Vector3Int Position;
     public bool IsRoot = false;
     public bool IsTrap = false;
@@ -221,8 +219,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             await this.MapPathing();
         }
 
-        this.SetGroupCellLeaders();
-
         // Final touchups before deploying.
         this.MapDetails();
 
@@ -262,6 +258,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
     /// <exception cref="System.Exception"></exception>
     private void MapRootCells(List<DoorPair> available)
     {
+        int seen = 0;
         foreach (DoorPair pair in available)
         {
             GameObject door = pair.Door;
@@ -298,6 +295,10 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             }
 
             this.CreateMap(position.RoundToInt(), true, pair);
+
+            Cell rootCell = this.Grid[position.RoundToInt()];
+
+            seen++;
         }
     }
 
@@ -351,7 +352,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 if (neighbors.Count() == 0) continue;
 
                 Cell chosenCell = neighbors.Random();
-
                 currentMap = this.CreateMap(chosenCell.Position, false);
                 currentMap.NameOverride = "ALLEY";
             }
@@ -433,7 +433,7 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
             }
 
             /* I do not know why, and im very mad, but this is a solution
-             * to getting what walls should be visible from an edge case.
+             to getting what walls should be visible from an edge case.
              I spent over 3 hours trying to figure out why randomly
             some walls would break here. I added a lot of debug logic 
             and came all the way back here for it for Visual Studio
@@ -465,51 +465,6 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
         }
 
         return unclean;
-    }
-
-    /// <summary>
-    /// Go through each root cell and set each hallway cell in a group for pathfinding.
-    /// </summary>
-    private void SetGroupCellLeaders()
-    {
-        List<Cell> seenCells = new List<Cell>();
-        List<HallwayMap> rootMaps = this.PreMappedCells.Where(r => r.IsRoot).ToList();
-
-        for (int i = 0; i < rootMaps.Count; i++) 
-        {
-            HallwayMap map = rootMaps[i];
-
-            // Make sure this has not been added to a group yet.
-            if (map.GroupId != -1)
-                continue;
-
-            // Assign the group.
-            map.GroupId = i;
-
-            // Grab and assign the cell.
-            Cell rootCell = Grid[map.Position];
-
-            // Assign the group Id's.
-            SetGroupCell(rootCell, i, seenCells);
-        }
-    }
-
-    private void SetGroupCell(Cell root, int groupId, List<Cell> seen)
-    {
-        if (seen.Contains(root))
-            return;
-        else
-            seen.Add(root);
-
-        root.GroupId = groupId;
-
-        foreach (Cell neighbor in this.Grid.Neighbors(root.Position,1)
-            // Only go through the first 4 elements. (Up,Right,Down,Left)
-            .Take(4)
-            .Where(r => r.Type == CellType.Hallway))
-        {
-            SetGroupCell(neighbor, groupId, seen);
-        }
     }
 
     /// <summary>
@@ -605,11 +560,29 @@ public class MazeHallwayGenerator : MonoBehaviour, IGenerator<HallwayMono>
                 this.Maze.DoorRegistry.SetConnection(map.DoorPair.Door, newHall);
             }
 
+            Cell hallCell = this.Grid[map.Position];
+
             if (!string.IsNullOrEmpty(map.NameOverride))
                 newHall.name = map.NameOverride;
 
-            // Set the cell room.
-            this.Grid[map.Position].Room = newHall;
+            hallCell.SetWallVisibility(SpatialOrientation.Up, map.UpV);
+            hallCell.SetWallVisibility(SpatialOrientation.Right, map.RightV);
+            hallCell.SetWallVisibility(SpatialOrientation.Left, map.LeftV);
+            hallCell.SetWallVisibility(SpatialOrientation.Down, map.BottomV);
+
+            if (!map.IsRoot)
+            {
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Up).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Up, true);
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Right).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Right, true);
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Left).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Left, true);
+                if (this.Grid.Neighbor(hallCell, SpatialOrientation.Down).Type == CellType.Room)
+                    hallCell.SetWallVisibility(SpatialOrientation.Down, true);
+            }
+
+            hallCell.Room = newHall;
 
             // Generate.
             await newHall.Generate(map);
