@@ -124,6 +124,38 @@ public class Cell
         {
             acceptedNeighbors.Add(neighbors.Right);
         }
+        if (IsValidMove(grid, controller, SpatialOrientation.UpStairsLeft))
+        {
+            acceptedNeighbors.Add(neighbors.UpStairsLeft);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.UpStairsRight))
+        {
+            acceptedNeighbors.Add(neighbors.UpStairsRight);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.UpStairsUp))
+        {
+            acceptedNeighbors.Add(neighbors.UpStairsUp);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.UpStairsDown))
+        {
+            acceptedNeighbors.Add(neighbors.UpStairsDown);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.DownStairsLeft))
+        {
+            acceptedNeighbors.Add(neighbors.DownStairsLeft);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.DownStairsRight))
+        {
+            acceptedNeighbors.Add(neighbors.DownStairsRight);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.DownStairsUp))
+        {
+            acceptedNeighbors.Add(neighbors.DownStairsUp);
+        }
+        if (IsValidMove(grid, controller, SpatialOrientation.DownStairsDown))
+        {
+            acceptedNeighbors.Add(neighbors.DownStairsDown);
+        }
 
         return acceptedNeighbors;
     }

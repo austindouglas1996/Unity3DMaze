@@ -139,12 +139,65 @@ public class MazeGrid
         List<Cell> newBounds = new List<Cell>();
 
         List<Transform> wallObjects = new List<Transform>();
+        List<Transform> stairObjects = new List<Transform>();
         Transform[] AllObjects = room.GetComponentsInChildren<Transform>(true);
+
         foreach (Transform obj in AllObjects)
         {
             if (obj.gameObject.layer == LayerMask.NameToLayer("Wall") || obj.gameObject.layer == LayerMask.NameToLayer("Door"))
             {
                 wallObjects.Add(obj);
+            }
+
+            if (obj.gameObject.layer == LayerMask.NameToLayer("Stair"))
+            {
+                stairObjects.Add(obj); 
+            }
+        }
+
+        foreach (Transform stair in stairObjects)
+        {
+            Cell stairCell = this.Set(stair.transform.position.RoundToInt() + new Vector3Int(0, 2, 0), type, room);
+            stairCell.Type = CellType.Stairway;
+            newBounds.Add(stairCell);
+
+            // NEED TO FIX.
+            stairCell.SetWallVisibility(SpatialOrientation.Up, false);
+            stairCell.SetWallVisibility(SpatialOrientation.Down, false);
+            stairCell.SetWallVisibility(SpatialOrientation.Right, false);
+            stairCell.SetWallVisibility(SpatialOrientation.Left, false);
+
+            foreach (Transform wallObject in wallObjects)
+            {
+                Vector3 direction = (wallObject.position - stair.position);
+                if (Math.Abs(direction.x) > 2 || Math.Abs(direction.y) > 2 || Math.Abs(direction.z) > 2)
+                    continue;
+
+                RoomFixtureMono wallRf = wallObject.GetComponent<RoomFixtureMono>();
+
+                // This is a door.
+                if (wallObject.gameObject.layer == 6)
+                {
+                    continue;
+                }
+
+                if (direction.x == 2)
+                {
+                    stairCell.SetWallVisibility(SpatialOrientation.Up, true);
+                }
+                else if (direction.z == 2)
+                {
+                    stairCell.SetWallVisibility(SpatialOrientation.Left, true);
+                }
+
+                if (direction.x == -2)
+                {
+                    stairCell.SetWallVisibility(SpatialOrientation.Down, true);
+                }
+                else if (direction.z == -2)
+                {
+                    stairCell.SetWallVisibility(SpatialOrientation.Right, true);
+                }
             }
         }
 
@@ -269,6 +322,34 @@ public class MazeGrid
 
             case SpatialOrientation.DownLeft:
                 return this[cell.Position.x - (4 * distance), cell.Position.y, cell.Position.z + (4 * distance)];
+
+
+            case SpatialOrientation.UpStairsLeft:
+                return this[cell.Position.x, cell.Position.y + (2 * distance), cell.Position.z + (4 * distance)];
+
+            case SpatialOrientation.UpStairsRight:
+                return this[cell.Position.x, cell.Position.y + (2 * distance), cell.Position.z - (4 * distance)];
+
+            case SpatialOrientation.UpStairsUp:
+                return this[cell.Position.x - (4 * distance), cell.Position.y + (2 * distance), cell.Position.z];
+
+            case SpatialOrientation.UpStairsDown:
+                return this[cell.Position.x + (4 * distance), cell.Position.y + (2 * distance), cell.Position.z];
+
+
+
+            case SpatialOrientation.DownStairsLeft:
+                return this[cell.Position.x, cell.Position.y - (2 * distance), cell.Position.z + (4 * distance)];
+
+            case SpatialOrientation.DownStairsRight:
+                return this[cell.Position.x, cell.Position.y - (2 * distance), cell.Position.z - (4 * distance)];
+
+            case SpatialOrientation.DownStairsUp:
+                return this[cell.Position.x + (4 * distance), cell.Position.y - (2 * distance), cell.Position.z];
+
+            case SpatialOrientation.DownStairsDown:
+                return this[cell.Position.x - (4 * distance), cell.Position.y - (2 * distance), cell.Position.z];
+
             default:
                 throw new System.NotSupportedException();
         }

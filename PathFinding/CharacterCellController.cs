@@ -80,7 +80,7 @@ public class CharacterCellController : MonoBehaviour
         {
             // Have we reached our destination?
             var distance = Vector3.Distance(this.transform.position, (MovingTo.Position - new Vector3Int(0,2,0)));
-            if (distance < 0.8f)
+            if (distance < 1f || MovingTo.Type == CellType.Stairway && distance < 2f)
             {
                 GetNextCell();
             }

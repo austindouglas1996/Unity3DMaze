@@ -123,7 +123,7 @@ public class CharacterControllerWithGravity : MonoBehaviour
     {
         float distance = Vector3.Distance(transform.position.RoundToInt(), MovingTo);
 
-        if (distance > 1f)
+        if (distance > 2.5f)
         {
             animator.SetFloat("Vertical", 1.0f, 0.1f, Time.deltaTime);
             animator.SetFloat("Horizontal", 0.0f, 0.1f, Time.deltaTime);

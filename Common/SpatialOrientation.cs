@@ -41,7 +41,22 @@ public enum SpatialOrientation
     DownRight = Down | Right, // 8 | 4 = 12
 
     [Tooltip("Facing diagonally down and left.")]
-    DownLeft = Down | Left // 8 | 1 = 9
+    DownLeft = Down | Left, // 8 | 1 = 9
+
+    [Tooltip("Going up the stairs.")]
+    UpStairs = 1 << 4,
+
+    [Tooltip("Going down a stairway.")]
+    DownStairs = 1 << 5,
+
+    UpStairsLeft = UpStairs | Left,
+    UpStairsRight = UpStairs | Right,
+    UpStairsUp = UpStairs | Up,
+    UpStairsDown = UpStairs | Down,
+    DownStairsLeft = DownStairs | Left,
+    DownStairsRight = DownStairs | Right,
+    DownStairsUp = DownStairs | Up,
+    DownStairsDown = DownStairs | Down
 }
 
 

@@ -114,10 +114,14 @@ public class MazeRoomGenerator : MonoBehaviour, IGenerator<RoomMono>
         {
             RoomMono room = Generated[i];
 
+            this.Maze.Grid.SetRoomCells(room, CellType.Room);
+
+            /*
             if (room.MultiFloorRoom)
-                this.Maze.Grid.SetBounds(room.Bounds, room.transform.position.RoundToInt(), CellType.Room);
+                //this.Maze.Grid.SetBounds(room.Bounds, room.transform.position.RoundToInt(), CellType.Room);
             else
                 this.Maze.Grid.SetRoomCells(room, CellType.Room);
+            */
         }
 
         this.GenerateFinished = true;

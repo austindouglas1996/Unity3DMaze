@@ -83,6 +83,8 @@ public class RoomFixtureMono : MonoBehaviour
     [Tooltip("Should this entity keep its name after generation?")]
     [SerializeField] public bool StaticName = false;
 
+    [Tooltip("Should this entity keep its layer after generation?")]
+    [SerializeField] public bool StaticLayer = false;
 
     [Header("Prop options")]
     [Tooltip("What type of category does this piece fall into? Categories help keep styles in-line")]

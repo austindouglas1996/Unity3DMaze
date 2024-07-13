@@ -75,6 +75,16 @@ public class CellNeighborGroup : IEnumerable<Cell>
     public Cell DownRight { get => m_Grid.Neighbor(cell, SpatialOrientation.DownRight, distance); }
     public Cell DownLeft { get => m_Grid.Neighbor(cell, SpatialOrientation.DownLeft, distance); }
 
+    // Stairway directions.
+    public Cell UpStairsLeft { get => m_Grid.Neighbor(cell, SpatialOrientation.UpStairsLeft, distance); }
+    public Cell UpStairsRight { get => m_Grid.Neighbor(cell, SpatialOrientation.UpStairsRight, distance); }
+    public Cell UpStairsUp { get => m_Grid.Neighbor(cell, SpatialOrientation.UpStairsUp, distance); }
+    public Cell UpStairsDown { get => m_Grid.Neighbor(cell, SpatialOrientation.UpStairsDown, distance); }
+    public Cell DownStairsLeft { get => m_Grid.Neighbor(cell, SpatialOrientation.DownStairsLeft, distance); }
+    public Cell DownStairsRight { get => m_Grid.Neighbor(cell, SpatialOrientation.DownStairsRight, distance); }
+    public Cell DownStairsUp { get => m_Grid.Neighbor(cell, SpatialOrientation.DownStairsUp, distance); }
+    public Cell DownStairsDown { get => m_Grid.Neighbor(cell, SpatialOrientation.DownStairsDown, distance); }
+
     public IEnumerator<Cell> GetEnumerator()
     {
         return GetNeighbors().GetEnumerator();

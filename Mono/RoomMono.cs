@@ -325,6 +325,11 @@ public class RoomMono : MonoBehaviour
                 newItem.name = pieceOptions.Primary.ToString() + itemsMade;
             }
 
+            if (pieceOptions.StaticLayer)
+            {
+                newItem.layer = item.gameObject.layer;
+            }
+
             newItems.Add(newItem);
 
             // Destroy the generated item.
