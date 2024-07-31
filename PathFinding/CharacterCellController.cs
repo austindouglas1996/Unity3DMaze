@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -34,10 +35,15 @@ public class CharacterCellController : MonoBehaviour
     private Cell MovingTo;
 
     /// <summary>
+    /// Executed when we reach the destination.
+    /// </summary>
+    public event EventHandler ReachedDestination;
+
+    /// <summary>
     /// Navigate from our current position to a new cell. Use pathfinding to find our way.
     /// </summary>
     /// <param name="cell"></param>
-    public void MoveToCell(Cell cell)
+    public bool MoveToCell(Cell cell)
     {
         this.RemainingMoveInstructions = PathFinder.FindPath(GetCurrentCell(), cell);
 
@@ -59,8 +65,14 @@ public class CharacterCellController : MonoBehaviour
                 this.DebugCells.Add(go);
             }
         }
+        else
+        {
+            return false;
+        }
 
         this.GetNextCell();
+
+        return true;
     }
 
     /// <summary>
@@ -101,17 +113,29 @@ public class CharacterCellController : MonoBehaviour
     /// </summary>
     private void GetNextCell()
     {
-        if (this.RemainingMoveInstructions.Count == 0)
+        try
         {
-            this.IsMoving = false;
-            return;
+            if (this.RemainingMoveInstructions == null)
+                return;
+
+            if (this.RemainingMoveInstructions.Count == 0)
+            {
+                this.IsMoving = false;
+                ReachedDestination?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            this.MovingTo = this.RemainingMoveInstructions[0];
+            this.RemainingMoveInstructions.RemoveAt(0);
+
+            Vector3Int newPos = this.MovingTo.Position - new Vector3Int(0, 2, 0);
+            this.Controller.MoveTo(newPos);
+
+            this.IsMoving = true;
         }
-
-        this.MovingTo = this.RemainingMoveInstructions[0];
-        this.RemainingMoveInstructions.RemoveAt(0);
-
-        this.Controller.MoveTo(this.MovingTo.Position - new Vector3Int(0,2,0));
-
-        this.IsMoving = true;
+        catch(Exception e)
+        {
+            string b = "";
+        }
     }
 }

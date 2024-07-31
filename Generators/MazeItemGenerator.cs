@@ -56,8 +56,6 @@ public class MazeItemGenerator : MonoBehaviour, IGenerator<PocketableItem>
         if (this.GenerateCalled) return;
         this.GenerateCalled = true;
 
-        if (SellablePrefabsNotUsed.Count == 0) return;
-
         ResetNotUsedPrefabsList();
         await AddUntilSatisified();
 

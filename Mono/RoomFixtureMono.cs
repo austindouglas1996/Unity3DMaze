@@ -115,8 +115,11 @@ public class RoomFixtureMono : MonoBehaviour
     [Tooltip("Can we spawn props on this trap if the trap is not chosen?")]
     [SerializeField] private bool SupportsPropsOnNoTrap = true;
 
-    [Tooltip("This is for hallway generation mostly, but allow for theere to be a chance for a trap to be made.")]
+    [Tooltip("This is for hallway generation mostly, but allow for there to be a chance for a trap to be made.")]
     [SerializeField] private bool ChanceForTrap = true;
+
+    [Tooltip("Is this tile required to be a trap.")]
+    [SerializeField] private bool GuaranteedFloorTrap = false;
 
     /// <summary>
     /// Gets the direction this fixture is facing.
@@ -422,6 +425,12 @@ public class RoomFixtureMono : MonoBehaviour
     /// <returns></returns>
     private void ShouldGenerateTrap()
     {
+        if (GuaranteedFloorTrap)
+        {
+            this.IsTrap = true;
+            return;
+        }
+
         if (Behavior == RoomFixtureBehaviorType.Trap)
         {
             if (!this.ChanceForTrap || !RandomHelper.Chance(Chances.ChanceForTrap))

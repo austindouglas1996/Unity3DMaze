@@ -126,7 +126,7 @@ public class MazeController : MonoBehaviour
         GenerateFinished = true;
         this.OnValidate();
 
-        this.Player.GetComponent<FirstPersonController>().Teleport(this.Rooms.Generated[0].transform.position);
+        this.Player.GetComponent<FirstPersonController>().Teleport(this.Grid.Cells[0].Position);
         this.Player.gameObject.SetActive(true);
     }
 
