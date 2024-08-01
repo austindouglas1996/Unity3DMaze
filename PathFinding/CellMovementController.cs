@@ -1,16 +1,27 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
+using VHierarchy.Libs;
 
-public abstract class PathFindRunner : MonoBehaviour
+/// <summary>
+/// A helper class for running through the move instructions provided by <see cref="GridCellPathFinder.FindPath(Cell, Cell)"/>. This class will
+/// help with moving through the moving cells until reaching the destination cell. Debug cubes are also provided.
+/// </summary>
+public abstract class CellMovementController : MonoBehaviour
 {
-    [Tooltip("Helps with determining paths for characters in the grid.")]
-    [SerializeField] public GridCellPathFinder PathFinder;
+    /// <summary>
+    /// Helps with pathfinding around the maze.
+    /// </summary>
+    private GridCellPathFinder PathFinder;
 
     /// <summary>
     /// Current instructions for cell movement.
     /// </summary>
     private List<Cell> MoveInstructions = new List<Cell>();
+    private List<GameObject> DebugCells = new List<GameObject>();
+
+    public bool IsMoving { get { return MoveInstructions.Count > 0; } }
 
     /// <summary>
     /// Event invoked when we reach the destination cell.
@@ -18,11 +29,17 @@ public abstract class PathFindRunner : MonoBehaviour
     public event EventHandler Finished;
 
     /// <summary>
+    /// Event invoked when the last action was cancelled.
+    /// </summary>
+    public event EventHandler Cancelled;
+
+    /// <summary>
     /// Cancel the current pathfinding.
     /// </summary>
     public void Cancel()
     {
         this.MoveInstructions.Clear();
+        Cancelled?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -31,7 +48,11 @@ public abstract class PathFindRunner : MonoBehaviour
     /// <param name="pos"></param>
     public void MoveTo(Vector3Int pos)
     {
-        this.PathFinder.Grid.Find(pos, new Vector3(2f, 4f, 2f));
+        Cell chosenCell = this.PathFinder.Grid.Find(pos, new Vector3(2f, 4f, 2f));
+        if (chosenCell == null)
+            throw new ArgumentNullException("CellMovement.MoveTo failed to find cell.");
+
+        this.MoveTo(chosenCell);
     }
 
     /// <summary>
@@ -43,12 +64,22 @@ public abstract class PathFindRunner : MonoBehaviour
         var result = this.PathFinder.FindPath(this.GetCurrentCell(), pos);
         if (result != null)
             MoveInstructions = result;
+
+        UpdateDebugCells();
+    }
+
+    /// <summary>
+    /// Initializes the findPathfinding variable.
+    /// </summary>
+    protected virtual async Task Start()
+    {
+        this.PathFinder = new GridCellPathFinder(MazeController.Instance.Grid, MazeController.Instance);
     }
 
     /// <summary>
     /// Invokes the <see cref="UpdateMovement(Cell, Cell)"/> method. If returned true will choose a new cell.
     /// </summary>
-    private void Update()
+    protected virtual async Task Update()
     {
         if (MoveInstructions != null && MoveInstructions.Count > 0)
         {
@@ -66,6 +97,24 @@ public abstract class PathFindRunner : MonoBehaviour
     /// <param name="destinationCell"></param>
     /// <returns></returns>
     protected abstract bool UpdateMovement(Cell currentCell, Cell destinationCell);
+
+    /// <summary>
+    /// Add debug cells for each path we would be taking.
+    /// </summary>
+    private void UpdateDebugCells()
+    {
+        foreach (var cell in DebugCells)
+        {
+            cell.Destroy();
+        }
+        DebugCells.Clear();
+
+        foreach (var cell in MoveInstructions)
+        {
+            GameObject go = Instantiate(MazeResourceManager.Instance.DebugCube, cell.Position, Quaternion.identity, this.transform.parent);
+            this.DebugCells.Add(go);
+        }
+    }
 
     /// <summary>
     /// Return the current cell this enity is near.

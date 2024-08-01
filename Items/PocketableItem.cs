@@ -22,6 +22,9 @@ public class PocketableItem : InteractiveItemBase
     [Tooltip("Can the player hand the item to another player?")]
     [SerializeField] public bool IsTrigger = false;
 
+    [Tooltip("As this item been recently gifted?")]
+    [SerializeField] public bool IsRecentlyGifted = false;
+
     [Tooltip("Can be sold.")]
     [SerializeField] public bool IsSellable = false;
 

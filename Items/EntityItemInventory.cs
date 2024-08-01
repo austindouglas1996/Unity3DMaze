@@ -3,7 +3,6 @@ using Unity.VisualScripting;
 using UnityEditor.Rendering.LookDev;
 using UnityEngine;
 
-[RequireComponent(typeof(EntityInventoryTrigger))]
 public class EntityItemInventory : MonoBehaviour
 {
     /// <summary>
@@ -100,7 +99,7 @@ public class EntityItemInventory : MonoBehaviour
         item.GetComponent<Rigidbody>().isKinematic = true;
         item.transform.rotation = item.OffsetRotation;
         item.transform.parent = this.transform;
-        //item.transform.localPosition = Entity.HeldItemPosition + item.OffsetPosition;
+        item.transform.localPosition = new Vector3(0, 0, 0);
         Items.Add(item);
 
         // Set as selected item.

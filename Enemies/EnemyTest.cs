@@ -5,19 +5,18 @@ using Unity.VisualScripting;
 using UnityEditor.Rendering;
 using UnityEngine;
 
+[RequireComponent(typeof(CharacterMovementController))]
 public class EnemyTest : MonoBehaviour
 {
     public GameObject Player;
     public MazeController Maze;
     public GameObject Marker1;
 
-    private GridCellPathFinder PFinder;
-    [SerializeField] private CharacterCellController Controller;
+    private CharacterMovementController Controller;
 
     private void Start()
     {
-        PFinder = new GridCellPathFinder(Maze.Grid, Maze);
-        this.Controller.PathFinder = PFinder;
+        Controller = GetComponent<CharacterMovementController>();
     }
 
     private void Update()
@@ -50,7 +49,7 @@ public class EnemyTest : MonoBehaviour
             return;
         }
 
-        this.Controller.MoveToCell(playerPos);
+        this.Controller.MoveTo(playerPos);
     }
 
     private Cell GetPlayerCell()

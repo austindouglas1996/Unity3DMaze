@@ -11,6 +11,11 @@ using UnityEngine.Rendering;
 public class MazeController : MonoBehaviour
 {
     /// <summary>
+    /// Returns the existing <see cref="MazeController"/>.
+    /// </summary>
+    public static MazeController Instance { get; private set; }
+
+    /// <summary>
     /// Has the maze finished generating?
     /// </summary>
     [HideInInspector]
@@ -80,6 +85,8 @@ public class MazeController : MonoBehaviour
     /// </summary>
     private async void Start()
     {
+        MazeController.Instance = this;
+
         this.PathContainer = Instantiate(new GameObject("PathContainer"), this.transform.position, Quaternion.identity);
         this.DoorPathContainer = Instantiate(new GameObject("DoorPathContainer"), this.transform.position, Quaternion.identity);
 
