@@ -21,7 +21,9 @@ public abstract class CellMovementController : MonoBehaviour
     private List<Cell> MoveInstructions = new List<Cell>();
     private List<GameObject> DebugCells = new List<GameObject>();
 
+    [SerializeField] public bool ShowDebugCells = true;
     public bool IsMoving { get { return MoveInstructions.Count > 0; } }
+    public Cell MovingTo {  get { return MoveInstructions[0]; } }
 
     /// <summary>
     /// Event invoked when we reach the destination cell.
@@ -103,11 +105,17 @@ public abstract class CellMovementController : MonoBehaviour
     /// </summary>
     private void UpdateDebugCells()
     {
+        if (!this.ShowDebugCells && DebugCells.Count == 0)
+            return;
+
         foreach (var cell in DebugCells)
         {
             cell.Destroy();
         }
         DebugCells.Clear();
+
+        if (!this.ShowDebugCells)
+            return;
 
         foreach (var cell in MoveInstructions)
         {

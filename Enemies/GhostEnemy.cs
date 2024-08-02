@@ -73,15 +73,17 @@ public class GhostEnemy : CharacterMovementController
     private float RemainingTimeBeforeNextTantrum = -1;
 
     [Header("Effects")]
-    [SerializeField] private GameObject AngryTransformState; 
+    [SerializeField] private GameObject AngryTransformState;
     private Shake shake;
-    private LightController lightController;
+    private LightController lightController; 
+    private Vector3 initialPosition;
 
     [Header("Debug options")]
     [Tooltip("For debug options. Not to be set")]
     [SerializeField] private RoomMono FavoriteRoom;
     [SerializeField] private bool DeterminePath = false;
     [SerializeField] private bool Stop = false;
+
 
     /// <summary>
     /// Initialize components and set events.
@@ -98,6 +100,7 @@ public class GhostEnemy : CharacterMovementController
         shake = this.GetComponent<Shake>();
         lightController = this.GetComponent<LightController>();
         Inventory = this.GetComponent<EntityItemInventory>();
+        initialPosition = this.transform.localPosition;
 
         base.Finished += GhostEnemy_Finished;
         await base.Start();
@@ -124,6 +127,14 @@ public class GhostEnemy : CharacterMovementController
         {
             DeterminePath = false;
             DetermineNewPath();
+        }
+
+        foreach (var sway in this.GetComponentsInChildren<ItemSway>())
+        {
+            if (this.IsMoving)
+                sway.SetSway(this.transform.position.RoundToInt(), this.MovingTo.Position);
+            else
+                sway.ClearSway();
         }
 
         if (this.Personality == GhostCorePersonality.Wandering)
