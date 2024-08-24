@@ -79,6 +79,14 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
             RoomMono newRoom = await InstantiateRoom(GetRandomRoomPrefab(lastRoom));
             newRoom.transform.position = GetRandomPositionInSpace();
 
+            /*
+             * NOTICE: THIS MAY CAUSE ISSUES. I wanted random room rotation.
+             * I can't find anything in past code with how we rotated rooms. I know we rotated rooms once
+             * did I remove rotation for a reason? 
+             */
+            List<float> randomRot = new List<float>() { 0, 90, 180 };
+            newRoom.transform.rotation = Quaternion.Euler(0, randomRot.Random(), 0);
+
             // Align.
             AlignRoomToGrid(newRoom.gameObject);
 
@@ -275,12 +283,13 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
 
             // Calculate the offset needed to align the tile to the grid
             float offsetX = Mathf.Round(tilePosition.x / 4f) * 4f - tilePosition.x;
+            float offsetY = Mathf.Round(tilePosition.y / 4f) * 4f - tilePosition.y;
             float offsetZ = Mathf.Round(tilePosition.z / 4f) * 4f - tilePosition.z;
 
-            Debug.LogWarning($"{room.name} Offset: {offsetX} {offsetZ}");
+            Debug.LogWarning($"{room.name} Offset: {offsetX},{offsetY}, {offsetZ}");
 
             // Apply this offset to the entire room
-            room.transform.position += new Vector3(offsetX, 0, offsetZ);
+            room.transform.position += new Vector3(offsetX, offsetY, offsetZ);
         }
         else
         {

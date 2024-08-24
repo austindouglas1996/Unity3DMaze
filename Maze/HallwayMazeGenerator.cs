@@ -7,27 +7,6 @@ using UnityEngine;
 using VHierarchy.Libs;
 using Random = UnityEngine.Random;
 
-public class HallwayMap
-{
-    public HallwayMap(Vector3Int pos, bool isRoot)
-    {
-        this.Position = pos;
-        this.IsRoot = isRoot;
-    }
-
-    public Vector3Int Position;
-    public bool IsRoot = false;
-    public bool IsTrap = false;
-
-    public bool LeftV = false;
-    public bool RightV = false;
-    public bool UpV = false;
-    public bool BottomV = false;
-
-    public string NameOverride = "";
-    public DoorPair DoorPair = null;
-}
-
 /// <summary>
 /// Information on a request for a hallway stair to be generated. Information on the stairway
 /// position, along with buffer positions to make sure no cells are generated inside the hallway.
@@ -130,12 +109,13 @@ public class HallwayStairMap
 [RequireComponent(typeof(MazeController))]
 public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
 {
-    [Header("Simple Generation Options")]
+    [Header("Alley Generation Options")]
     [Tooltip("The maximum amount of cells two hallway roots can be from each other. The higher the number, along with the higher number of rooms the more ridiculous the mazes.")]
     [SerializeField] private int MaxPathRange = 6;
 
     [Tooltip("HallwayGenerator line 615: You may be looking at this and thinking this is built wrong. You would be right, but\r\n * when this is built correctly the maze suffers. Because of this we purposefully\r\n * break the maze. \r\n Tldr; Hallways are generated on X & Z and not just X.")]
     [SerializeField] private bool CorrectHallways = false;
+
 
     [Header("Alley Generation Options")]
     [SerializeField] private bool Alleys = true;
