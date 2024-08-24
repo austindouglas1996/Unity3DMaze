@@ -51,7 +51,7 @@ public class MazeController : MonoBehaviour
     /// <summary>
     /// Helps with generating rooms.
     /// </summary>
-    [HideInInspector] public RoomMazeGenerator Rooms;
+    [HideInInspector] public ScatterRoomMazeGenerator Rooms;
 
     /// <summary>
     /// Helps with generating hallways.
@@ -71,7 +71,7 @@ public class MazeController : MonoBehaviour
         Grid = new MazeGrid();
 
         this.DoorRegistry = this.GetComponent<DoorRegistry>();
-        this.Rooms = this.GetComponent<RoomMazeGenerator>();
+        this.Rooms = this.GetComponent<ScatterRoomMazeGenerator>();
         this.Hallways = this.GetComponent<HallwayMazeGenerator>();
         this.Loot = this.GetComponent<LootMazeGenerator>();
 

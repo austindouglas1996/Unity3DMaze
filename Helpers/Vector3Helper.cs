@@ -24,4 +24,9 @@ public static class Vector3Helper
             vector.y,
             vector.z);
     }
+
+    public static Vector3 Multiply(this Vector3 v1, float scalar)
+    {
+        return new Vector3(v1.x * scalar, v1.y * scalar, v1.z * scalar);
+    }
 }

@@ -5,6 +5,27 @@ using UnityEngine;
 
 public static class TransformHelper
 {
+    public static Transform FindFirstChildByLayer(this Transform parent, int layer)
+    {
+        // Check the children directly under this parent
+        foreach (Transform child in parent)
+        {
+            if (child.gameObject.layer == layer)
+            {
+                return child;
+            }
+
+            // Recursively check the child's children
+            Transform result = child.FindFirstChildByLayer(layer);
+            if (result != null)
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Return the BoundingBox <see cref="Bounds"/> variable from a <see cref="Transform"/>. This helper function just helps
     /// eliminate the 100 line text to do something like X.transform.Find("BoundingBox").GetComponent<Renderer>().bounds into one a simple helper.
