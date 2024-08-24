@@ -1,0 +1,81 @@
+using System.Collections;
+using UnityEngine;
+using static UnityEngine.Rendering.DebugUI.Table;
+
+public class ItemSway : MonoBehaviour
+{
+    [SerializeField] private float swayAmount = 0.1f;
+    [SerializeField] private float swaySpeed = 2f;
+
+    private Vector3 SwayOffset = Vector3Int.zero;
+    private Quaternion SwayRotation = Quaternion.identity;
+
+    private Vector3 originalLocalPosition;
+    private Quaternion originalLocalrotation;
+
+    private Coroutine clearSwayCoroutine;
+
+    public void ClearSway()
+    {
+        if (clearSwayCoroutine != null)
+        {
+            StopCoroutine(clearSwayCoroutine);
+        }
+        clearSwayCoroutine = StartCoroutine(SmoothClearSway());
+    }
+
+    public void SetSway(Vector3Int currentPos, Vector3Int destinationPos)
+    {
+        // Calculate the direction of movement
+        Vector3 direction = (destinationPos - currentPos);
+        direction = direction.normalized;
+
+        // Calculate the sway offset using a sinusoidal pattern
+        float sway = Mathf.Sin(Time.time * swaySpeed) * swayAmount;
+
+        // Calculate the sway offset in the direction of movement
+        SwayOffset = new Vector3(0, sway, 0);
+
+        float rotationSway = sway * 50f;
+
+        // Calculate the sway rotation (opposite direction of movement)
+        SwayRotation = Quaternion.Euler(new Vector3(-rotationSway * direction.x, rotationSway * direction.y, rotationSway * direction.z));
+    }
+
+    private void Start()
+    {
+        originalLocalPosition = transform.localPosition;
+        originalLocalrotation = transform.localRotation;
+    }
+
+    private void Update()
+    {
+        ApplySway();
+    }
+
+    private void ApplySway()
+    {
+        transform.localPosition = originalLocalPosition + SwayOffset;
+        transform.rotation = SwayRotation;
+    }
+
+    private IEnumerator SmoothClearSway()
+    {
+        Vector3 initialSwayOffset = SwayOffset;
+        Quaternion initialSwayRotation = SwayRotation;
+
+        float elapsedTime = 0f;
+
+        while (elapsedTime < 1f)
+        {
+            SwayOffset = Vector3.Lerp(initialSwayOffset, Vector3.zero, elapsedTime / 1f);
+            SwayRotation = Quaternion.Slerp(initialSwayRotation, Quaternion.identity, elapsedTime / 1f);
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        SwayOffset = Vector3.zero;
+        SwayRotation = Quaternion.identity;
+    }
+}
