@@ -325,30 +325,30 @@ public class MazeGrid
 
 
             case SpatialOrientation.UpStairsLeft:
-                return this[cell.Position.x, cell.Position.y + (2 * distance), cell.Position.z + (4 * distance)];
+                return this[cell.Position.x, cell.Position.y + (4 * distance), cell.Position.z + (4 * distance)];
 
             case SpatialOrientation.UpStairsRight:
-                return this[cell.Position.x, cell.Position.y + (2 * distance), cell.Position.z - (4 * distance)];
+                return this[cell.Position.x, cell.Position.y + (4 * distance), cell.Position.z - (4 * distance)];
 
             case SpatialOrientation.UpStairsUp:
-                return this[cell.Position.x - (4 * distance), cell.Position.y + (2 * distance), cell.Position.z];
+                return this[cell.Position.x - (4 * distance), cell.Position.y + (4 * distance), cell.Position.z];
 
             case SpatialOrientation.UpStairsDown:
-                return this[cell.Position.x + (4 * distance), cell.Position.y + (2 * distance), cell.Position.z];
+                return this[cell.Position.x + (4 * distance), cell.Position.y + (4 * distance), cell.Position.z];
 
 
 
             case SpatialOrientation.DownStairsLeft:
-                return this[cell.Position.x, cell.Position.y - (2 * distance), cell.Position.z + (4 * distance)];
+                return this[cell.Position.x, cell.Position.y - (4 * distance), cell.Position.z + (4 * distance)];
 
             case SpatialOrientation.DownStairsRight:
-                return this[cell.Position.x, cell.Position.y - (2 * distance), cell.Position.z - (4 * distance)];
+                return this[cell.Position.x, cell.Position.y - (4 * distance), cell.Position.z - (4 * distance)];
 
             case SpatialOrientation.DownStairsUp:
-                return this[cell.Position.x + (4 * distance), cell.Position.y - (2 * distance), cell.Position.z];
+                return this[cell.Position.x + (4 * distance), cell.Position.y - (4 * distance), cell.Position.z];
 
             case SpatialOrientation.DownStairsDown:
-                return this[cell.Position.x - (4 * distance), cell.Position.y - (2 * distance), cell.Position.z];
+                return this[cell.Position.x - (4 * distance), cell.Position.y - (4 * distance), cell.Position.z];
 
             default:
                 throw new System.NotSupportedException();

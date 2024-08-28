@@ -1,12 +1,14 @@
 using OverfortGames.FirstPersonController;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.VisualScripting;
 using UnityEngine;
+using VHierarchy.Libs;
 
 [RequireComponent(typeof(DoorRegistry))]
 [RequireComponent(typeof(RoomMazeGenerator))]
-[RequireComponent(typeof(HallwayMazeGenerator))]
+[RequireComponent(typeof(AHallwayMazeGenerator))]
 [RequireComponent(typeof(LootMazeGenerator))]
 public class MazeController : MonoBehaviour
 {
@@ -27,6 +29,9 @@ public class MazeController : MonoBehaviour
 
     [Tooltip("Destroy the current and regenerate.")]
     [SerializeField] public bool ResetMaze = false;
+
+    [Tooltip("Destroy the current and regenerate.")]
+    [SerializeField] public bool ResetCubes = false;
 
     /// <summary>
     /// Container for path cells.
@@ -56,12 +61,52 @@ public class MazeController : MonoBehaviour
     /// <summary>
     /// Helps with generating hallways.
     /// </summary>
-    [HideInInspector] public HallwayMazeGenerator Hallways;
+    [HideInInspector] public AHallwayMazeGenerator Hallways;
 
     /// <summary>
     /// Helps with generating loot around the maze.
     /// </summary>
     [HideInInspector] public LootMazeGenerator Loot;
+
+    private List<Color> colorList = new List<Color>()
+    {
+        Color.blue,
+        Color.green,
+        Color.red,
+        Color.yellow,
+        Color.magenta,
+        Color.gray,
+        Color.cyan
+    };
+    private int lastColor = 0;
+    private List<GameObject> cubes = new List<GameObject>();
+
+    /// <summary>
+    /// Create a debug cube.
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <param name="size"></param>
+    /// <param name="color"></param>
+    public void CreateDebugCube(Vector3 pos,  Vector3 size, string name)
+    {
+        GameObject newobj = Instantiate(MazeResourceManager.Instance.DebugCube, pos, Quaternion.identity, this.transform);
+        newobj.transform.localScale = size;
+
+        Renderer renderer = newobj.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            lastColor++;
+            if (lastColor > colorList.Count - 1)
+                lastColor = 0;
+
+            renderer.material.color = colorList[lastColor];
+        }
+
+        newobj.name = name;
+        cubes.Add(newobj);
+    }
+
+
 
     /// <summary>
     /// Unity function called.
@@ -70,9 +115,11 @@ public class MazeController : MonoBehaviour
     {
         Grid = new MazeGrid();
 
+        Instance = this;
+
         this.DoorRegistry = this.GetComponent<DoorRegistry>();
         this.Rooms = this.GetComponent<ScatterRoomMazeGenerator>();
-        this.Hallways = this.GetComponent<HallwayMazeGenerator>();
+        this.Hallways = this.GetComponent<AHallwayMazeGenerator>();
         this.Loot = this.GetComponent<LootMazeGenerator>();
 
         await this.CreateMaze();
@@ -108,6 +155,8 @@ public class MazeController : MonoBehaviour
             cMono.Set(cell);
         }
 
+        this.DisplayPathingCells(this.ShowPathingCells);
+        this.DisplayDoorCells(this.ShowDoorPathingCells);
 
         // Bring player back.
         this.Player.GetComponent<FirstPersonController>().Teleport(this.Grid.Cells[0].Position);
@@ -148,6 +197,7 @@ public class MazeController : MonoBehaviour
             // The door should already exist if not we have problems.
             if (existingCell.Type == CellType.None)
             {
+                continue;
                 throw new System.ArgumentException("Failed to find door cell position for " + doors.Key.name + " in room " + doors.Value.A.name);
             }
 
@@ -211,6 +261,17 @@ public class MazeController : MonoBehaviour
             this.ResetMaze = false;
             await this.DestroyMaze();
             await this.CreateMaze();
+        }
+
+        if (this.ResetCubes)
+        {
+            foreach (var o in this.cubes)
+            {
+                o.Destroy();
+            }
+
+            this.cubes.Clear();
+            this.ResetCubes = false;
         }
 
         this.DisplayPathingCells(this.ShowPathingCells);

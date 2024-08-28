@@ -42,6 +42,37 @@ public static class DistanceHelper
     }
 
     /// <summary>
+    /// Helps with determining the direction between cells.
+    /// </summary>
+    /// <param name="curr"></param>
+    /// <param name="dest"></param>
+    /// <returns></returns>
+    public static SpatialOrientation GetSpatialOrientation(Cell curr, Cell dest)
+    {
+        int dx = dest.Position.x - curr.Position.x;
+        int dz = dest.Position.z - curr.Position.z;
+
+        if (dx > 0)
+        {
+            return SpatialOrientation.Right;  // Moving right (positive X direction)
+        }
+        else if (dx < 0)
+        {
+            return SpatialOrientation.Left;   // Moving left (negative X direction)
+        }
+        else if (dz > 0)
+        {
+            return SpatialOrientation.Up;     // Moving up (positive Z direction)
+        }
+        else if (dz < 0)
+        {
+            return SpatialOrientation.Down;   // Moving down (negative Z direction)
+        }
+
+        return SpatialOrientation.None;       // No movement or invalid direction
+    }
+
+    /// <summary>
     /// Determines if moving from point a to point b is in a positive direction.
     /// </summary>
     /// <param name="a">Starting point</param>

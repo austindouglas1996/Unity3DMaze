@@ -66,6 +66,9 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
         RoomAreaRemaining = (SizeInTiles.x * SizeInTiles.y * SizeInTiles.z) * 4;
     }
 
+    [SerializeField] private Vector3 One = new Vector3(0, 0, 0);
+    [SerializeField] private Vector3 Two = new Vector3(40, 8, 0);
+
     /// <summary>
     /// Geenerate the random maze.
     /// </summary>
@@ -73,7 +76,16 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
     /// <returns></returns>
     protected override async Task OnGenerate(object[] args)
     {
-        while (GeneratedEntities.Count < RoomsToGenerate)
+        RoomMono one = await InstantiateRoom(GenericRoomPrefabs[0]);
+        one.transform.position = One;
+        one.transform.rotation = Quaternion.Euler(0, 0, 0);
+
+        RoomMono two = await InstantiateRoom(GenericRoomPrefabs[0]);
+        two.transform.position = Two;
+        one.transform.rotation = Quaternion.Euler(0, 0, 0);
+        bool dumb = true;
+
+        while (GeneratedEntities.Count < RoomsToGenerate && !dumb)
         {
             RoomMono lastRoom = GeneratedEntities.Count > 0 ? GeneratedEntities.Last() : null;
             RoomMono newRoom = await InstantiateRoom(GetRandomRoomPrefab(lastRoom));
@@ -100,8 +112,11 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
                 while (CheckForCollision(newRoom))
                 {
                     newRoom.name += "_COLLISION";
-                    newRoom.transform.position += new Vector3(4f, 4f, 4f);
+                    newRoom.transform.position += new Vector3(4f, 0f, 4f);
                 }
+
+                // Align again in case.
+                AlignRoomToGrid(newRoom.gameObject);
             }
         }
 
@@ -286,14 +301,8 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
             float offsetY = Mathf.Round(tilePosition.y / 4f) * 4f - tilePosition.y;
             float offsetZ = Mathf.Round(tilePosition.z / 4f) * 4f - tilePosition.z;
 
-            Debug.LogWarning($"{room.name} Offset: {offsetX},{offsetY}, {offsetZ}");
-
             // Apply this offset to the entire room
             room.transform.position += new Vector3(offsetX, offsetY, offsetZ);
-        }
-        else
-        {
-            Debug.LogWarning("No floor tile found in the room to use for alignment.");
         }
     }
 

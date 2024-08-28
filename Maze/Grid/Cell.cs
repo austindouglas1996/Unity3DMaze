@@ -52,6 +52,11 @@ public class Cell
     public int F => G + H;
 
     /// <summary>
+    /// A* Pathfinding. Used for rebuilding a stairway.
+    /// </summary>
+    public HashSet<Vector3Int> PreviousSet { get; set; } = new HashSet<Vector3Int>();
+
+    /// <summary>
     /// A* Pathfinding. The default cost of going to this cell.
     /// </summary>
     public int Cost { get; set; } = 1;
@@ -95,6 +100,97 @@ public class Cell
             return false;
 
         return true;
+    }
+
+    /// <summary>
+    /// Check if a <see cref="Cell"/> is valid position for a <see cref="HallwayMono"/> to spawn in A+ pathfinding.
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="controller"></param>
+    /// <param name="direction"></param>
+    /// <returns></returns>
+    public bool IsValidHallwaySpawn(MazeGrid grid, MazeController controller, SpatialOrientation direction)
+    {
+        Cell neighbor = grid.Neighbor(this, direction);
+
+        if (neighbor == null)
+            return false;
+
+        List<CellType> validTypes = new List<CellType>()
+        {
+            CellType.None,
+            CellType.Hallway
+        };
+
+        if (!validTypes.Contains(neighbor.Type))
+            return false;
+
+        // Make sure the stairway is going our direction.
+        if (neighbor.Type == CellType.Stairway)
+        {
+            return false;
+
+            // Common directions.
+            if (direction == SpatialOrientation.Left && neighbor.IsWallVisible(SpatialOrientation.Right)
+                || direction == SpatialOrientation.Right && neighbor.IsWallVisible(SpatialOrientation.Left)
+                || direction == SpatialOrientation.Up && neighbor.IsWallVisible(SpatialOrientation.Down)
+                || direction == SpatialOrientation.Down && neighbor.IsWallVisible(SpatialOrientation.Up))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Check if a <see cref="Cell"/> along with its neighbors is a valid position for a <see cref="HallwayStairMap"/> to spawn in A+ pathfinding.
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="controller"></param>
+    /// <param name="direction"></param>
+    /// <param name="IsUp"></param>
+    /// <returns></returns>
+    public List<Cell> IsValidStairway(MazeGrid grid, MazeController controller, Cell lookingAt, Cell dest)
+    {
+        List<Cell> stairwayCells = new List<Cell>();
+
+        // Calculate the direction vector from curr to dest
+        SpatialOrientation direction = DistanceHelper.GetSpatialOrientation(this, lookingAt);
+        if (direction == SpatialOrientation.None) return null;
+
+        // The vertical difference between the current and destination cells
+        int positiveY = DistanceHelper.IsPositiveDirection(this.Position.y, dest.Position.y) ? 4 : -4;
+
+        // Start cell needs to be a hallway.
+        Cell entrance = this;//grid.Neighbor(this, direction);
+
+        // Grab the next two cells that are forward from the entrance.
+        Cell step1 = grid.Neighbor(entrance, direction);
+        Cell step2 = grid.Neighbor(step1, direction);
+
+        // Grab the next two cells that are up/below the first two.
+        Cell step3 = grid[new Vector3Int(step1.Position.x, step1.Position.y + positiveY, step1.Position.z)];
+        Cell step4 = grid[new Vector3Int(step2.Position.x, step2.Position.y + positiveY, step2.Position.z)];
+
+        // Finally, the destination needs to be a hallway too.
+        Cell exit = grid.Neighbor(step4, direction);
+
+        if (entrance.Type != CellType.Hallway && entrance.Type != CellType.None && entrance.Type != CellType.Door)
+            return null;
+
+        if (exit.Type != CellType.Hallway && exit.Type != CellType.None)
+            return null;
+
+        if (step1.Type != CellType.None || step2.Type != CellType.None || step3.Type != CellType.None || step4.Type != CellType.None)
+            return null;
+
+        stairwayCells.Add(entrance);
+        stairwayCells.Add(step1);
+        stairwayCells.Add(step2);
+        stairwayCells.Add(step3);
+        stairwayCells.Add(step4);
+        stairwayCells.Add(exit);
+
+        return stairwayCells;
     }
 
     /// <summary>
@@ -155,6 +251,37 @@ public class Cell
         if (IsValidMove(grid, controller, SpatialOrientation.DownStairsDown))
         {
             acceptedNeighbors.Add(neighbors.DownStairsDown);
+        }
+
+        return acceptedNeighbors;
+    }
+
+    /// <summary>
+    /// Retrieve a list of valid neighbors for hallway spawns.
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="controller"></param>
+    /// <returns></returns>
+    public List<Cell> GetValidHallwayNeighbors(MazeGrid grid, MazeController controller)
+    {
+        var neighbors = grid.Neighbors(this);
+        var acceptedNeighbors = new List<Cell>();
+
+        if (IsValidHallwaySpawn(grid, controller, SpatialOrientation.Up))
+        {
+            acceptedNeighbors.Add(neighbors.Up);
+        }
+        if (IsValidHallwaySpawn(grid, controller, SpatialOrientation.Down))
+        {
+            acceptedNeighbors.Add(neighbors.Down);
+        }
+        if (IsValidHallwaySpawn(grid, controller, SpatialOrientation.Left))
+        {
+            acceptedNeighbors.Add(neighbors.Left);
+        }
+        if (IsValidHallwaySpawn(grid, controller, SpatialOrientation.Right))
+        {
+            acceptedNeighbors.Add(neighbors.Right);
         }
 
         return acceptedNeighbors;
