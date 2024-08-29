@@ -94,15 +94,6 @@ public class GridCellPathFinder
         return cellPath;
     }
 
-    public bool IsInBounds(Vector3Int position)
-    {
-        return position.x >= -100 && position.x < 400 &&
-               position.y >= -100 && position.y < 400 &&
-               position.z >= -100 && position.z < 400;
-    }
-
-
-
     public List<Cell> FindHallwayPath(Cell start, Cell end)
     {
         var openList = new PriorityQueue<Cell>(Comparer<Cell>.Create((a, b) => a.F.CompareTo(b.F)));
@@ -131,8 +122,11 @@ public class GridCellPathFinder
                 break;
             }
 
-            foreach (var neighbor in currentCell.GetValidHallwayNeighbors(this.Grid, this.Controller))
+            foreach (var neighbor in this.Grid.Neighbors(currentCell))
             {
+                if (!IsInBounds(neighbor.Position))
+                    continue;
+
                 if (!allNodes.TryGetValue(neighbor.Position, out var neighborCell))
                 {
                     neighborCell = neighbor;
@@ -147,81 +141,46 @@ public class GridCellPathFinder
                 if (currentCell.PreviousSet.Contains(neighborCell.Position))
                     continue;
 
-                // Handle stairways
-                if (currentCell.Position.y != end.Position.y)
+                // Find if this is a valid path.
+                var pathCost = currentCell.IsValidHallway(Grid, Controller, neighbor, end);
+                if (!pathCost.IsTraversable) continue;
+
+                // Check if the previous set contains one of these cells.
+                if (pathCost.IsStairs)
                 {
-                    var stairway = currentCell.IsValidStairway(Grid, Controller, neighbor, end);
-                    if (stairway != null)
-                    {
-                        bool invalid = false;
-                        foreach (var stair in stairway)
-                        {
-                            if (stair != currentCell && (currentCell.PreviousSet.Contains(stair.Position) || closedList.Contains(stair.Position)))
-                            {
-                                invalid = true;
-                                break;
-                            }
-                        }
-
-                        if (invalid)
-                            continue;
-
-                        // Process the entire stairway as a single step
-                        Cell lastStairCell = stairway.Last();
-                        if (!allNodes.TryGetValue(lastStairCell.Position, out var stairNode))
-                        {
-                            stairNode = lastStairCell;
-                            allNodes[lastStairCell.Position] = stairNode;
-                        }
-
-                        stairNode.Parent = currentCell;
-                        stairNode.G = currentCell.G + GetMovementCost(stairNode);
-                        stairNode.H = Heuristic(stairNode, end);
-
-                        // Update PreviousSet for the stairway in one go
-                        stairNode.PreviousSet = new HashSet<Vector3Int>(currentCell.PreviousSet);
-                        stairNode.PreviousSet.UnionWith(stairway.ConvertAll(cell => cell.Position));
-
-                        // Add or update stairNode in the open list
-                        if (!openList.Contains(stairNode))
-                        {
-                            openList.Enqueue(stairNode);
-                        }
-                        else
-                        {
-                            openList.UpdatePriority(stairNode);
-                        }
-
-                        continue; // Skip to the next neighbor since the stairway cells have been processed.
-                    }
+                    if (pathCost.StairCells.Any(cell => currentCell.PreviousSet.Contains(cell.Position) && cell != currentCell)) 
+                        continue;
                 }
 
                 // The current cost to access this cell
                 var tentativeG = currentCell.G + GetMovementCost(neighbor);
 
-                if (!openList.Contains(neighborCell))
+                if (tentativeG < neighbor.G)
                 {
+                    if (pathCost.IsStairs)
+                    {
+                        neighborCell = pathCost.StairCells.Last();
+                        neighborCell.StairCells.AddRange(pathCost.StairCells);
+                    }
+
                     neighborCell.Parent = currentCell;
                     neighborCell.G = tentativeG;
                     neighborCell.H = Heuristic(neighborCell, end);
 
-                    // Inherit the PreviousSet and add the current position
-                    neighborCell.PreviousSet = new HashSet<Vector3Int>(currentCell.PreviousSet);
-                    neighborCell.PreviousSet.Add(neighborCell.Position);
+                    neighborCell.PreviousSet.Clear();
+                    neighborCell.PreviousSet.UnionWith(currentCell.PreviousSet);
+                    neighborCell.PreviousSet.Add(currentCell.Position);
 
-                    openList.Enqueue(neighborCell);
-                }
-                else if (tentativeG < neighborCell.G)
-                {
-                    neighborCell.Parent = currentCell;
-                    neighborCell.G = tentativeG;
-                    neighborCell.H = Heuristic(neighborCell, end);
+                    if (pathCost.IsStairs)
+                    {
+                        foreach (var stair in pathCost.StairCells)
+                            neighborCell.PreviousSet.Add(stair.Position);
+                    }
 
-                    // Update the PreviousSet in case of a shorter path
-                    neighborCell.PreviousSet = new HashSet<Vector3Int>(currentCell.PreviousSet);
-                    neighborCell.PreviousSet.Add(neighborCell.Position);
-
-                    openList.UpdatePriority(neighborCell);
+                    if (openList.Contains(neighborCell))
+                        openList.UpdatePriority(neighborCell);
+                    else
+                        openList.Enqueue(neighborCell);
                 }
             }
         }
@@ -238,22 +197,15 @@ public class GridCellPathFinder
 
         while (currentCell != null)
         {
-            // If the current cell's PreviousSet contains more than just its own position, it might be part of a stairway
-            if (currentCell.PreviousSet.Count > 1)
+            if (currentCell.StairCells.Count != 0)
             {
-                foreach (var position in currentCell.PreviousSet)
-                {
-                    Cell stairCell = Grid[position];
-
-                    //if (path.Contains(stairCell))
-                        //continue;
-
-                    path.Add(stairCell);
-                    stairCell.Type = CellType.Stairway;
-                    Grid.Set(stairCell.Position, CellType.Stairway);
-                }
+                currentCell.StairCells.Remove(currentCell.StairCells.First());
+                currentCell.StairCells.Remove(currentCell.StairCells.Last());
             }
+            foreach (var stair in currentCell.StairCells)
+                path.Add(stair);
 
+            path.Add(currentCell);
             currentCell = currentCell.Parent;
         }
 
@@ -263,29 +215,12 @@ public class GridCellPathFinder
         }
 
         path.Reverse();
-        return path;
+        return null;
     }
 
 
 
 
-    private bool IsStairwayPartOfValidPath(List<Cell> stairwayCells, List<Cell> currentPath)
-    {
-        // Ensure that the stairway's entrance or exit is connected to a cell already in the path
-        var entranceCell = stairwayCells.First();
-        var exitCell = stairwayCells.Last();
-
-        // The stairway is valid if its entrance or exit connects to a cell already in the path
-        return currentPath.Contains(entranceCell) || currentPath.Contains(exitCell);
-    }
-
-    private void CreateStairwayDebugCubes(List<Cell> stairwayCells, int i)
-    {
-        if (i >= 1 && i <= 4)
-        {
-            MazeController.Instance.CreateDebugCube(stairwayCells[i].Position, new Vector3(4, 4, 4), "Stair");
-        }
-    }
 
     private int GetMovementCost(Cell cell)
     {
@@ -298,6 +233,13 @@ public class GridCellPathFinder
             default:
                 return 5; // Default cost for other cell types
         }
+    }
+
+    public bool IsInBounds(Vector3Int position)
+    {
+        return position.x >= -150 && position.x < 150 &&
+               position.y >= -150 && position.y < 150 &&
+               position.z >= -150 && position.z < 150;
     }
 
     /// <summary>

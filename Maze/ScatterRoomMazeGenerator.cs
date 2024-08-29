@@ -69,6 +69,8 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
     [SerializeField] private Vector3 One = new Vector3(0, 0, 0);
     [SerializeField] private Vector3 Two = new Vector3(40, 8, 0);
 
+    [SerializeField] private bool UseDebugSpawn = false;
+
     /// <summary>
     /// Geenerate the random maze.
     /// </summary>
@@ -76,47 +78,51 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
     /// <returns></returns>
     protected override async Task OnGenerate(object[] args)
     {
-        RoomMono one = await InstantiateRoom(GenericRoomPrefabs[0]);
-        one.transform.position = One;
-        one.transform.rotation = Quaternion.Euler(0, 0, 0);
-
-        RoomMono two = await InstantiateRoom(GenericRoomPrefabs[0]);
-        two.transform.position = Two;
-        one.transform.rotation = Quaternion.Euler(0, 0, 0);
-        bool dumb = true;
-
-        while (GeneratedEntities.Count < RoomsToGenerate && !dumb)
+        if (UseDebugSpawn)
         {
-            RoomMono lastRoom = GeneratedEntities.Count > 0 ? GeneratedEntities.Last() : null;
-            RoomMono newRoom = await InstantiateRoom(GetRandomRoomPrefab(lastRoom));
-            newRoom.transform.position = GetRandomPositionInSpace();
+            RoomMono one = await InstantiateRoom(GenericRoomPrefabs[0]);
+            one.transform.position = One;
+            one.transform.rotation = Quaternion.Euler(0, 0, 0);
 
-            /*
-             * NOTICE: THIS MAY CAUSE ISSUES. I wanted random room rotation.
-             * I can't find anything in past code with how we rotated rooms. I know we rotated rooms once
-             * did I remove rotation for a reason? 
-             */
-            List<float> randomRot = new List<float>() { 0, 90, 180 };
-            newRoom.transform.rotation = Quaternion.Euler(0, randomRot.Random(), 0);
-
-            // Align.
-            AlignRoomToGrid(newRoom.gameObject);
-
-            if (!IsRoomSizeAcceptable(newRoom))
+            RoomMono two = await InstantiateRoom(GenericRoomPrefabs[0]);
+            two.transform.position = Two;
+            one.transform.rotation = Quaternion.Euler(0, 0, 0);
+        }
+        else
+        {
+            while (GeneratedEntities.Count < RoomsToGenerate)
             {
-                RemoveRoom(newRoom);
-                continue;
-            }
-            else
-            {
-                while (CheckForCollision(newRoom))
-                {
-                    newRoom.name += "_COLLISION";
-                    newRoom.transform.position += new Vector3(4f, 0f, 4f);
-                }
+                RoomMono lastRoom = GeneratedEntities.Count > 0 ? GeneratedEntities.Last() : null;
+                RoomMono newRoom = await InstantiateRoom(GetRandomRoomPrefab(lastRoom));
+                newRoom.transform.position = GetRandomPositionInSpace();
 
-                // Align again in case.
+                /*
+                 * NOTICE: THIS MAY CAUSE ISSUES. I wanted random room rotation.
+                 * I can't find anything in past code with how we rotated rooms. I know we rotated rooms once
+                 * did I remove rotation for a reason? 
+                 */
+                List<float> randomRot = new List<float>() { 0, 90, 180 };
+                newRoom.transform.rotation = Quaternion.Euler(0, randomRot.Random(), 0);
+
+                // Align.
                 AlignRoomToGrid(newRoom.gameObject);
+
+                if (!IsRoomSizeAcceptable(newRoom))
+                {
+                    RemoveRoom(newRoom);
+                    continue;
+                }
+                else
+                {
+                    while (CheckForCollision(newRoom))
+                    {
+                        newRoom.name += "_COLLISION";
+                        newRoom.transform.position += new Vector3(4f, 0f, 4f);
+                    }
+
+                    // Align again in case.
+                    AlignRoomToGrid(newRoom.gameObject);
+                }
             }
         }
 
