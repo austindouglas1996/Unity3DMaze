@@ -51,7 +51,7 @@ public class HallwayStairMap
     public Vector3Int BottomStair { get; set; }
 
     /// <summary>
-    /// Buffer locations are used for determining the spacing above each stair.
+    /// Buffer locations are used for determining the spacing above/below each stair.
     /// Each set of stairs requires 1 level (4f) above.
     /// </summary>
     public Vector3Int BufferL { get; set; }
@@ -127,9 +127,8 @@ public class HallwayStairMap
     }
 }
 
-
 [RequireComponent(typeof(MazeController))]
-public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
+public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
 {
     [Tooltip("Basic prefab with 4 ways that can be distributed to create hallways.")]
     [SerializeField] private GameObject HallwayPrefab;
@@ -149,10 +148,6 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
         pathFinder = new GridCellPathFinder(base.Maze.Grid, base.Maze);
 
         MapInitialPath();
-
-        MapRootCells(PrimaryConnections);
-        MapPathCells();
-        MapPathingPreRun();
         await MapPathing();
         MapDetails();
 
@@ -178,17 +173,41 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
         return Task.CompletedTask;
     }
 
-    private List<DoorPair> PrimaryConnections = new List<DoorPair>();
-    private List<DoorPair> SecondaryConnections = new List<DoorPair>();
+    Dictionary<RoomMono, List<HallwayMap>> Connections = new Dictionary<RoomMono, List<HallwayMap>>();
 
     private void MapInitialPath()
     {
-        List<DoorPair> available = this.Maze.DoorRegistry.GetAvailable();
+        var prim = new SimpleRoomPrimsAlgorithm();
+        var rooms = this.Maze.Rooms.GeneratedEntities;
+        var edges = prim.CalculateEdges(rooms);
+        var mst = prim.FindMinimumSpanningTree(rooms, edges);
+        var availableDoors = this.Maze.DoorRegistry.GetAvailable();
 
-        foreach (RoomMono room in this.Maze.Rooms.GeneratedEntities)
+        foreach (var room in rooms)
         {
-            DoorPair pair = available.Where(r => room == r.A || room == r.B).ToList()[0];
-            PrimaryConnections.Add(pair);
+            Connections.Add(room, MapRootCells(this.Maze.DoorRegistry.GetAvailable(room)));
+        }
+
+        foreach (var edge in mst)
+        {
+            try
+            {
+                var a = this.Connections[edge.Room1].Random();
+                var b = this.Connections[edge.Room2].Random();
+
+                this.Connections[edge.Room1].Remove(a);
+                this.Connections[edge.Room2].Remove(b);
+
+                availableDoors.Remove(a.DoorPair);
+                availableDoors.Remove(b.DoorPair);
+
+                // Create path.
+                ConnectTwoRoots(a, b);
+            }
+            catch (Exception ex)
+            {
+                string msg = ex.Message;
+            }
         }
     }
 
@@ -199,8 +218,10 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
     /// </summary>
     /// <param name="available"></param>
     /// <exception cref="System.Exception"></exception>
-    private void MapRootCells(List<DoorPair> available)
+    private List<HallwayMap> MapRootCells(List<DoorPair> available)
     {
+        List<HallwayMap> maps = new List<HallwayMap>();
+
         foreach (DoorPair pair in available)
         {
             GameObject door = pair.Door;
@@ -239,28 +260,12 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
             // We want to be at the door base.
             position -= new Vector3(0, 2, 0);
 
-            this.CreateMap(position.RoundToInt(), true, pair);
+            var map = this.CreateMap(position.RoundToInt(), true, pair);
+            if (map != null)
+                maps.Add(map);
         }
-    }
 
-    /// <summary>
-    /// Go through each root cell and try to connect them with the others. This creates pathing throughout the maze.
-    /// </summary>
-    /// <returns></returns>
-    private void MapPathCells()
-    {
-        List<HallwayMap> rootCells = PreMappedCells.Where(r => r.IsRoot).ToList();
-
-        int count = rootCells.Count;
-        for (int i = 0; i < count; i++)
-        {
-            int j = i + 1;
-
-            if (j > count - 1)
-                break;
-
-            ConnectTwoRoots(rootCells[i], rootCells[j]);
-        }
+        return maps;
     }
 
     /// <summary>
@@ -269,71 +274,55 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
     /// </summary>
     /// <param name="A"></param>
     /// <param name="B"></param>
-    private bool ConnectTwoRoots(HallwayMap A, HallwayMap B)
+    private void ConnectTwoRoots(HallwayMap A, HallwayMap B)
     {
-        // Position of each root.
-        Vector3Int APOS = A.Position;
-        Vector3Int BPOS = B.Position;
-
-        if (APOS == BPOS)
-        {
-            Debug.LogWarning($"Just tried to connect a root to itself? A: {A.Position} B:{B.Position}");
-            return false;
-        }
-
-        // Get (possibly) best direction.
-        Vector3 direction = DistanceHelper.DetermineDirectionBetweenPointsXZ(this.Maze.Grid, APOS, BPOS);
-
-        // Keep a list of stair hallways that will be made during this
-        // this connection between these two roots.
-        List<HallwayStairMap> stairways = new List<HallwayStairMap>();
-
         Cell ACell = this.Maze.Grid[A.Position];
         Cell BCell = this.Maze.Grid[B.Position];
 
-        List<Cell> pathCells = pathFinder.FindHallwayPath(ACell, BCell);
-        if (pathCells == null) return false;
+        var pathCells = pathFinder.FindHallwayPath(ACell, BCell);
+        if (pathCells == null) return;
 
-        foreach (Cell cell in pathCells)
+        foreach (Cell cell in pathCells.Item1)
         {
             CreateMap(cell.Position, false, A.DoorPair);
         }
 
-        return true;
-    }
-
-    /// <summary>
-    /// Clean up some existing elements before creating hallway paths.
-    /// </summary>
-    private void MapPathingPreRun()
-    {
-        List<HallwayStairMap> removeStairs = new List<HallwayStairMap>();
-
-        // Check our stairs and make sure they are valid.
-        foreach (var stairMap in this.PreMappedStairCells)
+        for (int i = 0; i < pathCells.Item2.Count; i += 6)
         {
-            Cell entranceCell = this.Maze.Grid[stairMap.Entrance];
-            Cell exitCell = this.Maze.Grid[stairMap.Exit];
+            // Entrance & exit.
+            var sEn = pathCells.Item2[i];
+            var sEx = pathCells.Item2[i + 5];
 
-            // No double hallways.
-            if (exitCell.Type == CellType.Stairway || entranceCell.Type == CellType.Stairway)
+            // Stairway cells.
+            var s0 = pathCells.Item2[i + 2]; // Top 
+            var s1 = pathCells.Item2[i + 1]; // Bottom
+            var s2 = pathCells.Item2[i + 3]; // Buffer L
+            var s3 = pathCells.Item2[i + 4]; // Buffer R
+
+            // Determine if our position is going down. If so, we want to reverse the buffer.
+            var descending = DistanceHelper.IsPositiveDirection(sEn.Position.y, sEx.Position.y);
+            if (!descending)
             {
-                stairMap.RemoveFromGrid(this.Maze.Grid);
-                removeStairs.Add(stairMap);
-                continue;
+                s0 = pathCells.Item2[i + 3];
+                s1 = pathCells.Item2[i + 4];
+                s2 = pathCells.Item2[i + 2];
+                s3 = pathCells.Item2[i + 1];
             }
 
-            if (entranceCell.Type == CellType.None || exitCell.Type == CellType.None)
-            {
-                stairMap.RemoveFromGrid(this.Maze.Grid);
-                removeStairs.Add(stairMap);
-                continue;
-            }
+            // Make a stair map.
+            var stairMap = new HallwayStairMap(s0.Position, s1.Position, s2.Position, s3.Position);
+            stairMap.Entrance = sEn.Position;
+            stairMap.Exit = sEx.Position;
+
+            MazeController.Instance.CreateDebugCube(stairMap.BottomStair, new Vector3(4, 4, 4), "stair", Color.red);
+            MazeController.Instance.CreateDebugCube(stairMap.TopStair, new Vector3(4, 4, 4), "stair", Color.magenta);
+            MazeController.Instance.CreateDebugCube(stairMap.BufferL, new Vector3(4, 4, 4), "stair", Color.yellow);
+            MazeController.Instance.CreateDebugCube(stairMap.BufferR, new Vector3(4, 4, 4), "stair", Color.green);
+
+            stairMap.AddToGrid(this.Maze.Grid);
+
+            this.PreMappedStairCells.Add(stairMap);
         }
-
-        // Remove stairs.
-        foreach (var stairMap in removeStairs)
-            this.PreMappedStairCells.Remove(stairMap);
     }
 
     /// <summary>
@@ -449,6 +438,7 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
     /// </summary>
     private async Task CommitCells()
     {
+        await CommitStairCells();
         await CommitHallways();
     }
 
@@ -463,12 +453,6 @@ public class AHallwayMazeGenerator : MazeGenerator<HallwayMono>
         {
             GameObject bottomGO = Instantiate(this.StairwayPrefabB, stairMap.BottomStair, stairMap.DetermineRotation(), this.transform);
             GameObject topGO = Instantiate(this.StairwayPrefabT, stairMap.TopStair, stairMap.DetermineRotation(), this.transform);
-
-            //GameObject g = Instantiate(this.Maze.debugCube4, stairMap.Entrance, stairMap.DetermineRotation(), this.transform);
-            //GameObject g1 = Instantiate(this.Maze.debugCube4, stairMap.Exit, stairMap.DetermineRotation(), this.transform);
-
-            //Instantiate(this.Maze.debugCube, stairMap.BufferR, stairMap.DetermineRotation(), this.transform);
-            //Instantiate(this.Maze.debugCube, stairMap.BufferL, stairMap.DetermineRotation(), this.transform);
 
             HallwayMono bottom = bottomGO.GetComponent<HallwayMono>();
             HallwayMono top = topGO.GetComponent<HallwayMono>();

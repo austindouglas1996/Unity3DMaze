@@ -50,7 +50,7 @@ public class GridCellPathFinder
             // We found the end. Return the path.
             if (currentCell.Equals(end))
             {
-                cellPath = ReconstructPath(currentCell);
+                cellPath = ReconstructPath(currentCell).Item1;
                 break;
             }
 
@@ -94,14 +94,21 @@ public class GridCellPathFinder
         return cellPath;
     }
 
-    public List<Cell> FindHallwayPath(Cell start, Cell end)
+    /// <summary>
+    /// Use A* pathfinding to find a way to create hallways from one position to another. Hallways are different from <see cref="FindPath(Cell, Cell)"/>. 
+    /// Hallways look for empty space, or already existing hallway cells.
+    /// </summary>
+    /// <param name="start"></param>
+    /// <param name="end"></param>
+    /// <returns></returns>
+    public Tuple<List<Cell>, List<Cell>> FindHallwayPath(Cell start, Cell end)
     {
         var openList = new PriorityQueue<Cell>(Comparer<Cell>.Create((a, b) => a.F.CompareTo(b.F)));
         var closedList = new HashSet<Vector3Int>();
         var allNodes = new Dictionary<Vector3Int, Cell>();
 
         Cell currentCell = null;
-        List<Cell> cellPath = null;
+        Tuple<List<Cell>, List<Cell>> cellPath = null;
 
         start.G = 0;
         start.H = Heuristic(start, end);
@@ -189,52 +196,70 @@ public class GridCellPathFinder
         return cellPath;
     }
 
-
-    private List<Cell> ReconstructPath(Cell endCell)
+    /// <summary>
+    /// Reconstructs the path to the original cell. Stairway cells, if required are included in their own list 
+    /// for reconstruction later. 
+    /// </summary>
+    /// <param name="endCell">The destination cell.</param>
+    /// <returns>A list of cells to reach the destination along with a list of cells to reconstruct stairs.</returns>
+    private Tuple<List<Cell>, List<Cell>> ReconstructPath(Cell endCell)
     {
         var path = new List<Cell>();
+        var stairs = new List<Cell>();
         var currentCell = endCell;
 
         while (currentCell != null)
         {
             if (currentCell.StairCells.Count != 0)
             {
-                currentCell.StairCells.Remove(currentCell.StairCells.First());
-                currentCell.StairCells.Remove(currentCell.StairCells.Last());
+                // We don't want to include the entrance or exit. 
+                Cell entrance = currentCell.StairCells.First();
+                Cell exit = currentCell.StairCells.Last();
+
+                currentCell.StairCells.Remove(entrance);
+                currentCell.StairCells.Remove(exit);
+
+                stairs.Add(entrance);
+
+                foreach (var stair in currentCell.StairCells)
+                    stairs.Add(stair);
+
+                stairs.Add(exit);
             }
-            foreach (var stair in currentCell.StairCells)
-                path.Add(stair);
 
             path.Add(currentCell);
             currentCell = currentCell.Parent;
         }
 
-        for (int i = 0; i < path.Count; i++)
-        {
-            MazeController.Instance.CreateDebugCube(path[i].Position, new Vector3(4, 4, 4), "Gay");
-        }
-
         path.Reverse();
-        return null;
+        return new Tuple<List<Cell>, List<Cell>>(path, stairs);
     }
 
-
-
-
-
+    /// <summary>
+    /// Returns the base cost of a cell.
+    /// </summary>
+    /// <param name="cell"></param>
+    /// <returns></returns>
     private int GetMovementCost(Cell cell)
     {
         switch (cell.Type)
         {
             case CellType.Hallway:
-                return 1; // Very cheap to move through hallways
+                return 5; // Very cheap to move through hallways
+            case CellType.Stairway:
+                return 20; // Very cheap to move through hallways
             case CellType.None:
                 return 10; // More expensive to move through empty spaces
             default:
-                return 5; // Default cost for other cell types
+                return 15; // Default cost for other cell types
         }
     }
 
+    /// <summary>
+    /// Returns whether a position is within the grid bounds.
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
     public bool IsInBounds(Vector3Int position)
     {
         return position.x >= -150 && position.x < 150 &&
@@ -273,6 +298,7 @@ public class GridCellPathFinder
             node.H = int.MaxValue;
             node.Parent = null;
             node.PreviousSet?.Clear();
+            node.StairCells?.Clear();
         }
     }
 }

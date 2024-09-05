@@ -8,7 +8,7 @@ using VHierarchy.Libs;
 
 [RequireComponent(typeof(DoorRegistry))]
 [RequireComponent(typeof(RoomMazeGenerator))]
-[RequireComponent(typeof(AHallwayMazeGenerator))]
+[RequireComponent(typeof(HallwayMazeGenerator))]
 [RequireComponent(typeof(LootMazeGenerator))]
 public class MazeController : MonoBehaviour
 {
@@ -61,7 +61,7 @@ public class MazeController : MonoBehaviour
     /// <summary>
     /// Helps with generating hallways.
     /// </summary>
-    [HideInInspector] public AHallwayMazeGenerator Hallways;
+    [HideInInspector] public HallwayMazeGenerator Hallways;
 
     /// <summary>
     /// Helps with generating loot around the maze.
@@ -87,7 +87,7 @@ public class MazeController : MonoBehaviour
     /// <param name="pos"></param>
     /// <param name="size"></param>
     /// <param name="color"></param>
-    public void CreateDebugCube(Vector3 pos,  Vector3 size, string name)
+    public void CreateDebugCube(Vector3 pos,  Vector3 size, string name, Color? color = null)
     {
         GameObject newobj = Instantiate(MazeResourceManager.Instance.DebugCube, pos, Quaternion.identity, this.transform);
         newobj.transform.localScale = size;
@@ -99,7 +99,7 @@ public class MazeController : MonoBehaviour
             if (lastColor > colorList.Count - 1)
                 lastColor = 0;
 
-            renderer.material.color = colorList[lastColor];
+            renderer.material.color = color.HasValue ? color.Value : colorList[lastColor];
         }
 
         newobj.name = name;
@@ -119,7 +119,7 @@ public class MazeController : MonoBehaviour
 
         this.DoorRegistry = this.GetComponent<DoorRegistry>();
         this.Rooms = this.GetComponent<ScatterRoomMazeGenerator>();
-        this.Hallways = this.GetComponent<AHallwayMazeGenerator>();
+        this.Hallways = this.GetComponent<HallwayMazeGenerator>();
         this.Loot = this.GetComponent<LootMazeGenerator>();
 
         await this.CreateMaze();

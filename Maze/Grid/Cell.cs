@@ -51,6 +51,9 @@ public class Cell
     /// </summary>
     public int F => G + H;
 
+    /// <summary>
+    /// Contains a list of related stair cells.
+    /// </summary>
     public List<Cell> StairCells = new List<Cell>();
 
     /// <summary>
@@ -104,14 +107,14 @@ public class Cell
         return true;
     }
 
-    public class PathCost
-    {
-        public int Cost { get; set; }
-        public bool IsTraversable { get; set; } = false;
-        public bool IsStairs { get; set; } = false;
-        public List<Cell> StairCells = new List<Cell>();
-    }
-
+    /// <summary>
+    /// Check if a given <see cref="Cell"/> is a valid position for A* pathfinding in a hallway cell.
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="controller"></param>
+    /// <param name="neighbor"></param>
+    /// <param name="destination"></param>
+    /// <returns></returns>
     public PathCost IsValidHallway(MazeGrid grid, MazeController controller, Cell neighbor, Cell destination)
     {
         var pathCost = new PathCost();
@@ -139,6 +142,9 @@ public class Cell
             // Start cell needs to be a hallway.
             Cell entrance = this;
 
+            if (entrance.Type != CellType.Hallway && entrance.Type != CellType.None && entrance.Type != CellType.Door)
+                return pathCost;
+
             // Grab the next two cells that are forward from the entrance.
             Cell step1 = grid.Neighbor(entrance, direction);
             Cell step2 = grid.Neighbor(step1, direction);
@@ -149,9 +155,6 @@ public class Cell
 
             // Finally, the destination needs to be a hallway too.
             Cell exit = grid.Neighbor(step4, direction);
-
-            if (entrance.Type != CellType.Hallway && entrance.Type != CellType.None && entrance.Type != CellType.Door)
-                return pathCost;
 
             if (exit.Type != CellType.Hallway && exit.Type != CellType.None)
                 return pathCost;
@@ -173,8 +176,6 @@ public class Cell
         return pathCost;
     }
         
-
-
     /// <summary>
     /// Retrieve a list of valid neighbors with this cell.
     /// </summary>
