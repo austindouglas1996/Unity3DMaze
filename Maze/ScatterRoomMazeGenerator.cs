@@ -38,6 +38,13 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
     private List<RoomMono> UsedSpecialRooms = new List<RoomMono>();
 
     /// <summary>
+    /// Used to help control the Y flow of rooms. Rooms going from 0 to 32 is a little extreme. Instead
+    /// We want to control the flow. So we use a list to keep the position of Y floors 'active'. During
+    /// generation we'll add variables to up, or down a floor. See <see cref="GetRandomYPosition"/>
+    /// </summary>
+    private List<float> KnownY = new List<float>() { 0 };
+
+    /// <summary>
     /// Returns whether a <see cref="RoomMono"/> intersects with another generated room in <see cref="Generated"/>.
     /// </summary>
     /// <param name="roomA"></param>
@@ -282,23 +289,32 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
 
         // Generate random positions within the specified bounds and round to the nearest multiple of 4
         float randomX = Mathf.Floor(Random.Range(0, maxX) / 4f) * 4f;
-        float randomY = GetRandomY();
+        float randomY = GetRandomYPosition();
         float randomZ = Mathf.Floor(Random.Range(0, maxZ) / 4f) * 4f;
 
         return new Vector3(randomX, randomY, randomZ);
     }
 
-    private List<float> KnownY = new List<float>() { 0 };
-    private float GetRandomY()
+    /// <summary>
+    /// Retrieve a random Y position for placing the rooms inside the grid.
+    /// </summary>
+    /// <returns></returns>
+    private float GetRandomYPosition()
     {
         // Create a copy of our known values.
         var TempY = new List<float>(KnownY);
+
+        // Sort the list so it is in order.
         TempY.Sort();
 
-        // Add a -1 (down a floor) or a +1 to add a floor.
+        // Add a -1, and -2 (down a floor) or a +1, +2 to add a floor.
+        TempY.AddAt(KnownY[0] - 1, 0);
         TempY.AddAt(KnownY[0] - 1, 0);
         TempY.AddAt(KnownY[KnownY.Count - 1] + 1, KnownY.Count - 1);
+        TempY.AddAt(KnownY[KnownY.Count - 1] + 1, KnownY.Count - 1);
 
+        // Select a random floor to spawn the room. If spawning on a new floor
+        // add it into the known floors.
         var selectedFloor = TempY.Random();
         if (!KnownY.Contains(selectedFloor))
         {

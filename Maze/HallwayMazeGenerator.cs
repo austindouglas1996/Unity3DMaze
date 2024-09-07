@@ -6,6 +6,7 @@ using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using VHierarchy.Libs;
+using static UnityEditor.ShaderGraph.Internal.KeywordDependentCollection;
 
 public class HallwayMap
 {
@@ -137,17 +138,24 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
     [SerializeField] private GameObject StairwayPrefabT;
     [SerializeField] private GameObject StairwayPrefabB;
 
+    [Header("Debug")]
+    [SerializeField] private bool ShowStairwayPaths = false;
+    [SerializeField] private bool ShowDeadEndPaths = false;
+
     private GridCellPathFinder pathFinder;
 
     private List<HallwayMono> HallwayCells = new List<HallwayMono>();
     private List<HallwayMap> PreMappedCells = new List<HallwayMap>();
     private List<HallwayStairMap> PreMappedStairCells = new List<HallwayStairMap>();
+    private Dictionary<RoomMono, List<HallwayMap>> Connections = new Dictionary<RoomMono, List<HallwayMap>>();
 
     protected override async Task OnGenerate(object[] args)
     {
         pathFinder = new GridCellPathFinder(base.Maze.Grid, base.Maze);
 
         MapInitialPath();
+        MapDeadEnds();
+        await MapPathing();
         await MapPathing();
         MapDetails();
 
@@ -173,8 +181,11 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
         return Task.CompletedTask;
     }
 
-    Dictionary<RoomMono, List<HallwayMap>> Connections = new Dictionary<RoomMono, List<HallwayMap>>();
-
+    /// <summary>
+    /// Map the initial path of the hallways. Creating a simple Minimum Spanning Tree (MST) between the rooms create a complex
+    /// but unusable system. Afterwards we'll generate a 2nd time using the remaining connections to create alternate paths to
+    /// the same destination.
+    /// </summary>
     private void MapInitialPath()
     {
         var prim = new SimpleRoomPrimsAlgorithm();
@@ -183,6 +194,8 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
         var mst = prim.FindMinimumSpanningTree(rooms, edges);
         var availableDoors = this.Maze.DoorRegistry.GetAvailable();
 
+        // Create the root cells for all available rooms just we can use them to
+        // create connections.
         foreach (var room in rooms)
         {
             Connections.Add(room, MapRootCells(this.Maze.DoorRegistry.GetAvailable(room)));
@@ -219,8 +232,15 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
         MapSideHalls();
     }
 
+    /// <summary>
+    /// Map additional paths to room. In <see cref="MapInitialPath"/> we mapped the minimum spanning tree (mst) to connect the rooms
+    /// now this method will help with mapping additional paths to room to give more than one connection, but not enough to overload
+    /// the player.
+    /// </summary>
     private void MapSideHalls()
     {
+        // Repeat the process like we did in MapInitialPath, but this time only give it a chance
+        // to map, or not map a cell while still removing the connection.
         var prim = new SimpleRoomPrimsAlgorithm();
         var edges = prim.CalculateEdges(Connections.Keys.ToList());
         var mst = prim.FindMinimumSpanningTree(Connections.Keys.ToList(), edges);
@@ -235,6 +255,7 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
                 this.Connections[edge.Room1].Remove(a);
                 this.Connections[edge.Room2].Remove(b);
 
+                // Give a only 30% chance we actually connect these rooms.
                 if (UnityEngine.Random.Range(0, 10) < 3)
                     continue;
 
@@ -248,6 +269,9 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
         }
 
         // Cleanup connections.
+        // During generation with the MST sometimes cells to a destination go through another root cell
+        // The pathfinding has no way to know what a root cell is and then that cell is still in the
+        // connections. In this instance we will remove that connection.
         foreach (var value in Connections.Values)
         {
             foreach (var val in value)
@@ -258,7 +282,8 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
                 {
                     if (neighbor.Type == CellType.Hallway)
                     {
-                       if (UnityEngine.Random.Range(0, 10) < 3)
+                        //  Give a random chance. We don't allow this cell.
+                        if (UnityEngine.Random.Range(0, 10) > 4)
                             continue;
 
                         validConnection = true;
@@ -271,6 +296,44 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
 
                 this.Maze.Grid.Set(val.Position, CellType.None);
                 this.PreMappedCells.Remove(val);
+            }
+        }
+
+        // We're done here.
+        this.Connections.Clear();
+    }
+
+    /// <summary>
+    /// Map additional paths inside the hallways to create dead ends on the edge hallways.
+    /// </summary>
+    private void MapDeadEnds()
+    {
+        foreach (var cell in this.PreMappedCells.ToList())
+        {
+            // Random chance to continue.
+            if (UnityEngine.Random.Range(0,10) > 3)
+                continue;
+
+            // The amount of 'root' cells we'd like this deadend to branch off.
+            int rootCells = UnityEngine.Random.Range(0, 3);
+
+            // Current selected cell.
+            HallwayMap currentMap = cell;
+
+            for (int i = 0; i < rootCells; i++)
+            {
+                // Grab neighbors that are empty. Continue is there is none.
+                List<Cell> neighbors = this.Maze.Grid.Neighbors(currentMap.Position, 1).Where(r => r.Type == CellType.None).ToList();
+                if (neighbors.Count() == 0) continue;
+
+                Cell chosenCell = neighbors.Random();
+                currentMap = this.CreateMap(chosenCell.Position, false);
+                currentMap.NameOverride = "ALLEY";
+
+                if (currentMap != null && this.ShowDeadEndPaths)
+                {
+                    this.Maze.CreateDebugCube(currentMap.Position, new Vector3(4, 4, 4), "ALLEY");
+                }
             }
         }
     }
@@ -378,10 +441,13 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
             stairMap.Entrance = sEn.Position;
             stairMap.Exit = sEx.Position;
 
-            MazeController.Instance.CreateDebugCube(stairMap.BottomStair, new Vector3(4, 4, 4), "stair", Color.red);
-            MazeController.Instance.CreateDebugCube(stairMap.TopStair, new Vector3(4, 4, 4), "stair", Color.magenta);
-            MazeController.Instance.CreateDebugCube(stairMap.BufferL, new Vector3(4, 4, 4), "stair", Color.yellow);
-            MazeController.Instance.CreateDebugCube(stairMap.BufferR, new Vector3(4, 4, 4), "stair", Color.green);
+            if (this.ShowStairwayPaths)
+            {
+                MazeController.Instance.CreateDebugCube(stairMap.BottomStair, new Vector3(4, 4, 4), "stairBottom", Color.red);
+                MazeController.Instance.CreateDebugCube(stairMap.TopStair, new Vector3(4, 4, 4), "stairTop", Color.magenta);
+                MazeController.Instance.CreateDebugCube(stairMap.BufferL, new Vector3(4, 4, 4), "stairBufferL", Color.yellow);
+                MazeController.Instance.CreateDebugCube(stairMap.BufferR, new Vector3(4, 4, 4), "stairBufferR", Color.green);
+            }
 
             stairMap.AddToGrid(this.Maze.Grid);
 
@@ -435,6 +501,7 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
             some walls would break here. I added a lot of debug logic 
             and came all the way back here for it for Visual Studio
             if (up.Type == None) do something when up.type == none it would not trigger.*/
+            // 9/7/2024 - This may be resolved now. It was an issue in Cell.
             bool up = neighbors.Up.Type == CellType.None;
             bool left = neighbors.Left.Type == CellType.None;
             bool right = neighbors.Right.Type == CellType.None;
