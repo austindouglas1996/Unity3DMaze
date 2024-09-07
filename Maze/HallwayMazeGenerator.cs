@@ -209,6 +209,70 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
                 string msg = ex.Message;
             }
         }
+
+        // Cleanup connections.
+        foreach (var key in Connections.Keys.Where(key => key == null || Connections[key].Count == 0).ToList())
+        {
+            Connections.Remove(key);
+        }
+
+        MapSideHalls();
+    }
+
+    private void MapSideHalls()
+    {
+        var prim = new SimpleRoomPrimsAlgorithm();
+        var edges = prim.CalculateEdges(Connections.Keys.ToList());
+        var mst = prim.FindMinimumSpanningTree(Connections.Keys.ToList(), edges);
+
+        foreach (var edge in mst)
+        {
+            try
+            {
+                var a = this.Connections[edge.Room1].Random();
+                var b = this.Connections[edge.Room2].Random();
+
+                this.Connections[edge.Room1].Remove(a);
+                this.Connections[edge.Room2].Remove(b);
+
+                if (UnityEngine.Random.Range(0, 10) < 3)
+                    continue;
+
+                // Create path.
+                ConnectTwoRoots(a, b);
+            }
+            catch (Exception ex)
+            {
+                string msg = ex.Message;
+            }
+        }
+
+        // Cleanup connections.
+        foreach (var value in Connections.Values)
+        {
+            foreach (var val in value)
+            {
+                bool validConnection = false;
+                var neighbors = this.Maze.Grid.Neighbors(val.Position);
+                foreach (var neighbor in neighbors)
+                {
+                    if (neighbor.Type == CellType.Hallway)
+                    {
+                       if (UnityEngine.Random.Range(0, 10) < 3)
+                            continue;
+
+                        validConnection = true;
+                        break;
+                    }
+                }
+
+                if (validConnection)
+                    continue;
+
+                this.Maze.Grid.Set(val.Position, CellType.None);
+                this.PreMappedCells.Remove(val);
+            }
+        }
     }
 
     /// <summary>

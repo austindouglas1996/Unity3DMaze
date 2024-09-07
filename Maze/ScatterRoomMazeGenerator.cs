@@ -278,15 +278,34 @@ public class ScatterRoomMazeGenerator : MazeGenerator<RoomMono>
     {
         // Calculate the size of the space in world units by multiplying by 4 (tile size)
         float maxX = SizeInTiles.x * 4f;
-        float maxY = SizeInTiles.y * 4f;
         float maxZ = SizeInTiles.z * 4f;
 
         // Generate random positions within the specified bounds and round to the nearest multiple of 4
         float randomX = Mathf.Floor(Random.Range(0, maxX) / 4f) * 4f;
-        float randomY = Mathf.Floor(Random.Range(0, maxY) / 4f) * 4f;
+        float randomY = GetRandomY();
         float randomZ = Mathf.Floor(Random.Range(0, maxZ) / 4f) * 4f;
 
         return new Vector3(randomX, randomY, randomZ);
+    }
+
+    private List<float> KnownY = new List<float>() { 0 };
+    private float GetRandomY()
+    {
+        // Create a copy of our known values.
+        var TempY = new List<float>(KnownY);
+        TempY.Sort();
+
+        // Add a -1 (down a floor) or a +1 to add a floor.
+        TempY.AddAt(KnownY[0] - 1, 0);
+        TempY.AddAt(KnownY[KnownY.Count - 1] + 1, KnownY.Count - 1);
+
+        var selectedFloor = TempY.Random();
+        if (!KnownY.Contains(selectedFloor))
+        {
+            KnownY.Add(selectedFloor);
+        }
+
+        return selectedFloor;
     }
 
     /// <summary>

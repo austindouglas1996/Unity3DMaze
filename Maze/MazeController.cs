@@ -106,8 +106,6 @@ public class MazeController : MonoBehaviour
         cubes.Add(newobj);
     }
 
-
-
     /// <summary>
     /// Unity function called.
     /// </summary>
