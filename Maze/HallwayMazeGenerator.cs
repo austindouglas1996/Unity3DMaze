@@ -157,6 +157,8 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
         MapDeadEnds();
         await MapPathing();
         await MapPathing();
+        await MapPathing();
+        await MapPathing();
         MapDetails();
 
         // Finally, commit our changes to the Maze.
@@ -364,30 +366,39 @@ public class HallwayMazeGenerator : MazeGenerator<HallwayMono>
             Bounds cubeBounds = HallwayPrefab.transform.BoundingBox();
 
             // Position for root.
-            Vector3 position = door.transform.position;
+            Vector3 rootPosition = door.transform.position;
+            float xCorrection = 0;
+            float zCorrection = 0;
 
             switch (direction)
             {
                 case SpatialOrientation.Up:
-                    position = new Vector3(doorA.max.x + cubeBounds.extents.x, position.y + cubeBounds.extents.y, doorA.center.z);
+                    xCorrection = 1;
+                    rootPosition = new Vector3(doorA.max.x + cubeBounds.extents.x, rootPosition.y + cubeBounds.extents.y, doorA.center.z);
                     break;
                 case SpatialOrientation.Right:
-                    position = new Vector3(doorA.center.x, position.y + cubeBounds.extents.y, doorA.min.z - cubeBounds.extents.z);
+                    zCorrection = -1;
+                    rootPosition = new Vector3(doorA.center.x, rootPosition.y + cubeBounds.extents.y, doorA.min.z - cubeBounds.extents.z);
                     break;
                 case SpatialOrientation.Down:
-                    position = new Vector3(doorA.min.x - cubeBounds.extents.x, position.y + cubeBounds.extents.y, doorA.center.z);
+                    xCorrection = -1;
+                    rootPosition = new Vector3(doorA.min.x - cubeBounds.extents.x, rootPosition.y + cubeBounds.extents.y, doorA.center.z);
                     break;
                 case SpatialOrientation.Left:
-                    position = new Vector3(doorA.center.x, position.y + cubeBounds.extents.y, (doorA.max.z + cubeBounds.extents.z));
+                    zCorrection = 1;
+                    rootPosition = new Vector3(doorA.center.x, rootPosition.y + cubeBounds.extents.y, (doorA.max.z + cubeBounds.extents.z));
                     break;
                 default:
                     throw new System.Exception("Direction: " + direction + " is not supported.");
             }
 
-            // We want to be at the door base.
-            position -= new Vector3(0, 2, 0);
+            // Unity math causes a bounding box to go from the center of a prefab
+            // due to this we will need to lower the root cell down to the floor 
+            // of its parent to connect properly.
+            rootPosition -= new Vector3(xCorrection, (2 * (doorA.size.y / 4)), zCorrection);
 
-            var map = this.CreateMap(position.RoundToInt(), true, pair);
+            // Create a new root cell map so children can be attached.
+            var map = this.CreateMap(rootPosition.RoundToInt(), true, pair);
             if (map != null)
                 maps.Add(map);
         }
