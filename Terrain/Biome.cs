@@ -20,4 +20,6 @@ public class Biome
     [Range(0, 1)] public float rockScale;
 
     public Color terrainColor;  // Color for vertex coloring
+    [Range(0f, 1f)] public float blendFactor = 0.5f;
+    [Range(0f, 1f)] public float strength;
 }

@@ -1,35 +1,21 @@
 using UnityEngine;
-]
+
+[RequireComponent(typeof(PolygonTerrain))]
 public class Chunk : MonoBehaviour
 {
-    [SerializeField] public GameWorld World;
-    [SerializeField] public Biome Biome;
+    public int GridX = 0;
+    public int GridZ = 0;
 
-    private float GetHeight(int x, int z)
+    public Biome Biome;
+    [SerializeField] public PolygonTerrain Terrain;
+
+    private void Start()
     {
-        float temperature = GetTemperature(x, z);
-        float humidity = GetHumidity(x, z);
-
-        // Calculate the base height before grabbing the actual Y.
-        float baseHeight = Mathf.PerlinNoise((x + seed) * globalNoiseScale, (z + seed) * globalNoiseScale);
-        Biome currentBiome = GetBiome(baseHeight, x, z);
-
-        // Generate the actual Y.
-        float y = Mathf.PerlinNoise(
-            (x + seed) * currentBiome.noiseScale * globalNoiseScale,
-            (z + seed) * currentBiome.noiseScale * globalNoiseScale) * currentBiome.heightScale;
-
-        return y;
+        this.Terrain = this.GetComponent<PolygonTerrain>();
     }
 
-
-    private void OnValidate()
+    public void GenerateTerrain(GameWorld world, Biome biome)
     {
-        
-    }
-
-    private void GenerateTerrain()
-    {
-
+        this.Terrain.Generate(world, biome);
     }
 }
