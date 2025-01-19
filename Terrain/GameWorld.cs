@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
@@ -7,23 +7,21 @@ public class GameWorld : MonoBehaviour
 {
     [Header("World")]
     public int Seed;
-    public List<Biome> Biomes;
 
     [Header("Chunk Settings")]
     public int GenerateChunksWidth = 5; 
     public int GenerateChunksHeight = 5;
 
     [Header("Cell Settings")]
-    [Range(5, 30)] public int ChunkCellsWidth = 20;
-    [Range(5, 30)] public int ChunkCellsHeight = 20;
-    [Range(1f, 6f)] public float CellSize = 4f;
-    [Range(1, 20)] public int CellBiomeBlendRange;
+    [Range(5, 90)] public int ChunkCellsWidth = 20; // How many cells per chunk in width.
+    [Range(5, 90)] public int ChunkCellsHeight = 20; // How many cells per chunk in height.
+    [Range(1, 12)] public int CellSize = 4; // How large each cell is.
 
     [Header("Biome generation")]
     /// <summary>
-    /// Controls the global height scale for initial generation.
+    /// Global noise scale.
     /// </summary>
-    [Range(0f, 1f)] public float NoiseScale = 0.3f;
+    [Range(0f, 1f)] public float GlobalNoiseScale = 0.3f;
 
     /// <summary>
     /// Temperature scale.
@@ -35,6 +33,11 @@ public class GameWorld : MonoBehaviour
     /// </summary>
     [Range(0f, 1f)] public float HumidityNoiseScale = 0.3f;
 
+    /// <summary>
+    /// A list of biomes to use.
+    /// </summary>
+    public List<Biome> Biomes;
+
     [Header("Prefabs")]
     public Chunk ChunkPrefab;
     public List<GameObject> GrassPrefabs;
@@ -42,39 +45,59 @@ public class GameWorld : MonoBehaviour
     public List<GameObject> TreePrefabs;
     public List<GameObject> RockPrefabs;
 
+    private Dictionary<Vector2Int, Chunk> Chunks = new Dictionary<Vector2Int, Chunk>();
+
     /// <summary>
     /// A public rand to keep things consistent with the chosen seed.
     /// </summary>
     public System.Random Rand;
 
     /// <summary>
-    /// Get the height of a specific point in a chunk.
+    /// Initialize components.
     /// </summary>
-    /// <param name="biome"></param>
+    private void Start()
+    {
+        Rand = new System.Random((int)Seed);
+    }
+
+    /// <summary>
+    /// Method called every time one of the properties is modified.
+    /// </summary>
+    private void OnValidate()
+    {       
+        if (!Application.isPlaying) return;
+        foreach (Transform child in transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        this.GenerateChunks();
+    }
+
+    /// <summary>
+    /// Retrieve a chunk at a certain position.
+    /// </summary>
     /// <param name="x"></param>
     /// <param name="z"></param>
     /// <returns></returns>
-    public float GetHeightInChunk(Chunk chunk, int localX, int localZ)
-    {        
-        // Get neighbor biome (most different biome near this chunk)
-        Biome neighborBiome = FindMostDifferentBiome(chunk.GridX, chunk.GridZ);
+    public Chunk GetChunk(int x, int z)
+    {
+        if (Chunks.ContainsKey(new Vector2Int(x, z)))
+        {
+            return Chunks[new Vector2Int(x, z)];
+        }
 
-        Vector3 worldPos = GridToWorldPosition(chunk.GridX, chunk.GridZ, localX, localZ);
-
-        // Calculate blend factor based on Perlin noise
-        float blendFactor = Mathf.InverseLerp(0.3f, 0.7f, Mathf.PerlinNoise((worldPos.x + Seed) * 0.02f, (worldPos.z + Seed) * 0.02f));
-
-        // Generate height for both current and neighbor biomes
-        float heightA = GenerateBiomeHeight(chunk.Biome, worldPos.x, worldPos.z);
-        float heightB = GenerateBiomeHeight(neighborBiome, (worldPos.x * -1), (worldPos.z * -1)); // We need to mirror the location.
-
-        // Apply biome smoothness factor (plains blend gradually, mountains blend sharply)
-        float smoothness = Mathf.Lerp(chunk.Biome.blendFactor, neighborBiome.blendFactor, blendFactor);
-
-        return Mathf.Lerp(heightA, heightB, smoothness);
+        return null;
     }
 
-    private float GenerateBiomeHeight(Biome biome, float worldX, float worldZ)
+    /// <summary>
+    /// Get the height of a vertex based on its point in the world.
+    /// </summary>
+    /// <param name="biome"></param>
+    /// <param name="worldX"></param>
+    /// <param name="worldZ"></param>
+    /// <returns></returns>
+    public float GetVertexHeight(Biome biome, float worldX, float worldZ)
     {
         // Generate multi-layered Perlin noise using WORLD coordinates
         float noise = Mathf.PerlinNoise((worldX + Seed) * biome.noiseScale, (worldZ + Seed) * biome.noiseScale);
@@ -86,35 +109,46 @@ public class GameWorld : MonoBehaviour
         return biome.minHeight + (noise * (biome.maxHeight - biome.minHeight));
     }
 
-
-    public Biome FindMostDifferentBiome(int gridX, int gridZ)
+    /// <summary>
+    /// Convert a set of grid positions to world positions.
+    /// </summary>
+    /// <param name="gridX"></param>
+    /// <param name="gridZ"></param>
+    /// <returns></returns>
+    public Vector3 GridToWorldPosition(int gridX, int gridZ)
     {
-        List<Biome> neighbors = GetNeighborsBiomes(gridX, gridZ);
-        if (neighbors.Count == 0) return Biomes[0]; // Default biome if no neighbors
-
-        // Sort biomes based on max height difference (ensures mountains blend into plains)
-        return neighbors.OrderByDescending(n => Mathf.Abs(n.minHeight - n.maxHeight)).First();
+        float worldX = (gridX * ChunkCellsWidth * CellSize);
+        float worldZ = (gridZ * ChunkCellsHeight * CellSize);
+        return new Vector3(worldX, 0, worldZ);
     }
 
     /// <summary>
-    /// Initialize components.
+    /// Convert a set of grid positions to world positions including local positions.
     /// </summary>
-    private void Start()
+    /// <param name="gridX"></param>
+    /// <param name="gridZ"></param>
+    /// <param name="localX"></param>
+    /// <param name="localZ"></param>
+    /// <returns></returns>
+    public Vector3 GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
     {
-        Rand = new System.Random((int)Seed);
-        this.GenerateChunks();
+        float worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
+        float worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
+        return new Vector3(worldX, 0, worldZ);
     }
 
-    private void OnValidate()
+
+    /// <summary>
+    /// Convert a set of world positions to grid positions.
+    /// </summary>
+    /// <param name="worldX"></param>
+    /// <param name="worldZ"></param>
+    /// <returns></returns>
+    public Vector2Int WorldToGridPosition(float worldX, float worldZ)
     {
-        if (!Application.isPlaying) return;
-
-        foreach (Transform child in transform)
-        {
-            Destroy(child.gameObject);
-        }
-
-        this.GenerateChunks();
+        int gridX = Mathf.FloorToInt(worldX / ChunkCellsWidth);
+        int gridZ = Mathf.FloorToInt(worldZ / ChunkCellsHeight);
+        return new Vector2Int(gridX, gridZ);
     }
 
     /// <summary>
@@ -122,15 +156,21 @@ public class GameWorld : MonoBehaviour
     /// </summary>
     private void GenerateChunks()
     {
+        Chunks.Clear();
+
         for (int z = 0; z < GenerateChunksHeight; z++)
         {
             for (int x = 0; x < GenerateChunksWidth; x++)
             {
                 // Step 1: Determine the biome for this chunk
-                Biome chunkBiome = GetBiomeForChunk(x, z, true);
+                Biome chunkBiome = Biomes.Random();//GetBiomeForChunk(x, z, false);
+                if (chunkBiome == null)
+                    throw new System.ArgumentNullException("Failed to find a suitable biome.");
 
                 Chunk newChunk = Instantiate(ChunkPrefab, this.transform);
                 newChunk.name = $"Chunk_{x}_{z}";
+                newChunk.World = this;
+                newChunk.Biome = chunkBiome;
 
                 float cx = (x * ChunkCellsWidth * CellSize);
                 float cz = (z * ChunkCellsHeight * CellSize);
@@ -144,7 +184,10 @@ public class GameWorld : MonoBehaviour
                 newChunk.transform.SetParent(this.transform);
 
                 // Step 4: Initialize the chunk with position & biome
-                newChunk.GetComponent<Chunk>().GenerateTerrain(this, chunkBiome);
+                newChunk.GenerateTerrain();
+
+                // Add to collection.
+                Chunks.Add(new Vector2Int(x,z), newChunk);
             }
         }
     }
@@ -157,12 +200,12 @@ public class GameWorld : MonoBehaviour
     /// <param name="gridZ">The Z position in the grid.</param>
     /// <param name="neighborInfluence"></param>
     /// <returns></returns>
-    public Biome GetBiomeForChunk(int gridX, int gridZ, bool neighborInfluence)
+    private Biome GetBiomeForChunk(int gridX, int gridZ, bool neighborInfluence)
     {
         float temp = GetTemperatureForChunk(gridX, gridZ);
         float humi = GetHumidityForChunk(gridX, gridZ);
 
-        Biome bestBiome = Biomes[0];
+        Biome bestBiome = Biomes.Random();
         float bestScore = float.MaxValue;
 
         // Should we grab the neighbor biome influence. 
@@ -291,46 +334,5 @@ public class GameWorld : MonoBehaviour
         }
 
         return neighbors;
-    }
-
-    /// <summary>
-    /// Convert a set of grid positions to world positions.
-    /// </summary>
-    /// <param name="gridX"></param>
-    /// <param name="gridZ"></param>
-    /// <returns></returns>
-    private Vector3 GridToWorldPosition(int gridX, int gridZ)
-    {
-        float worldX = gridX * ChunkCellsWidth;
-        float worldZ = gridZ * ChunkCellsHeight;
-        return new Vector3(worldX, 0, worldZ);
-    }
-
-    /// <summary>
-    /// Convert a set of grid positions to world positions including local positions.
-    /// </summary>
-    /// <param name="gridX"></param>
-    /// <param name="gridZ"></param>
-    /// <param name="localX"></param>
-    /// <param name="localZ"></param>
-    /// <returns></returns>
-    private Vector3 GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
-    {
-        float worldX = (gridX * ChunkCellsWidth) + (localX * CellSize);
-        float worldZ = (gridZ * ChunkCellsHeight) + (localZ * CellSize);
-        return new Vector3(worldX, 0, worldZ);
-    }
-
-    /// <summary>
-    /// Convert a set of world positions to grid positions.
-    /// </summary>
-    /// <param name="worldX"></param>
-    /// <param name="worldZ"></param>
-    /// <returns></returns>
-    private Vector2Int WorldToGridPosition(float worldX, float worldZ)
-    {
-        int gridX = Mathf.FloorToInt(worldX / ChunkCellsWidth);
-        int gridZ = Mathf.FloorToInt(worldZ / ChunkCellsHeight);
-        return new Vector2Int(gridX, gridZ);
     }
 }
