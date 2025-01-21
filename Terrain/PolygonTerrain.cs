@@ -66,7 +66,7 @@ public class PolygonTerrain : MonoBehaviour
             {
                 Vertices[sIndex] = new Vector3(x * World.CellSize, Chunk.GetHeightInChunk(x, z), z * World.CellSize);
 
-                if (Chunk.IsEdge(x, z))
+                if (Chunk.IsEdge(x, z) && World.ShowEdgeHeat)
                 {
                     Colors[sIndex] = Color.red;
                 }

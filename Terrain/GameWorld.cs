@@ -5,6 +5,10 @@ using UnityEngine;
 
 public class GameWorld : MonoBehaviour
 {
+    [Header("Debug")]
+    public bool ShowEdgeStitch = false;
+    public bool ShowEdgeHeat = true;
+
     [Header("World")]
     public int Seed;
 
@@ -33,6 +37,8 @@ public class GameWorld : MonoBehaviour
     /// </summary>
     [Range(0f, 1f)] public float HumidityNoiseScale = 0.3f;
 
+    [Range(0,10)] public int WorldEdgeBlend = 1;
+    public float BiomeBlendDistance = 15f;
     /// <summary>
     /// A list of biomes to use.
     /// </summary>
@@ -46,6 +52,22 @@ public class GameWorld : MonoBehaviour
     public List<GameObject> RockPrefabs;
 
     private Dictionary<Vector2Int, Chunk> Chunks = new Dictionary<Vector2Int, Chunk>();
+
+    public static List<Vector3Int> GetNeighborOffsets()
+    {
+        return new List<Vector3Int>
+    {
+        new Vector3Int(-1, 0, 0),  // Left
+        new Vector3Int(1, 0, 0),   // Right
+        new Vector3Int(0, 0, -1),  // Bottom
+        new Vector3Int(0, 0, 1),   // Top
+
+        new Vector3Int(-1, 0, -1), // Bottom-left diagonal
+        new Vector3Int(1, 0, -1),  // Bottom-right diagonal
+        new Vector3Int(-1, 0, 1),  // Top-left diagonal
+        new Vector3Int(1, 0, 1)    // Top-right diagonal
+    };
+    }
 
     /// <summary>
     /// A public rand to keep things consistent with the chosen seed.
@@ -66,6 +88,8 @@ public class GameWorld : MonoBehaviour
     private void OnValidate()
     {       
         if (!Application.isPlaying) return;
+        Rand = new System.Random((int)Seed);
+
         foreach (Transform child in transform)
         {
             Destroy(child.gameObject);
@@ -99,14 +123,26 @@ public class GameWorld : MonoBehaviour
     /// <returns></returns>
     public float GetVertexHeight(Biome biome, float worldX, float worldZ)
     {
-        // Generate multi-layered Perlin noise using WORLD coordinates
-        float noise = Mathf.PerlinNoise((worldX + Seed) * biome.noiseScale, (worldZ + Seed) * biome.noiseScale);
-        noise += Mathf.PerlinNoise((worldX + Seed) * biome.noiseScale * 0.5f, (worldZ + Seed) * biome.noiseScale * 0.5f) * 0.5f;
-        noise += Mathf.PerlinNoise((worldX + Seed) * biome.noiseScale * 0.25f, (worldZ + Seed) * biome.noiseScale * 0.25f) * 0.25f;
-        noise /= 1.75f; // Normalize
+        // 🌍 **1️⃣ Generate Large-Scale Macro Terrain (Mountains, Oceans)**
+        float macroNoise = Mathf.PerlinNoise((worldX + Seed) * biome.macroNoiseScale, (worldZ + Seed) * biome.macroNoiseScale);
+        macroNoise = macroNoise * 2f - 1f; // Normalize from [0,1] to [-1,1] for better contrast
+        float macroHeight = macroNoise * biome.macroInfluence * (biome.maxHeight - biome.minHeight);
 
-        // Scale height based on biome range
-        return biome.minHeight + (noise * (biome.maxHeight - biome.minHeight));
+        // ⛰️ **2️⃣ Generate Mid-Scale Hills & Regional Variation**
+        float midNoise = Mathf.PerlinNoise((worldX + Seed) * biome.midNoiseScale, (worldZ + Seed) * biome.midNoiseScale);
+        midNoise = midNoise * 2f - 1f; // Normalize [-1,1]
+        float midHeight = midNoise * biome.midInfluence * (biome.maxHeight - biome.minHeight);
+
+        // 🌿 **3️⃣ Generate Local-Scale Detail Noise (Hills, Small Bumps)**
+        float localNoise = Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale, (worldZ + Seed) * biome.localNoiseScale);
+        localNoise += Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale * 0.5f, (worldZ + Seed) * biome.localNoiseScale * 0.5f) * 0.5f;
+        localNoise += Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale * 0.25f, (worldZ + Seed) * biome.localNoiseScale * 0.25f) * 0.25f;
+        localNoise /= 1.75f; // Normalize
+
+        // 🏞️ **4️⃣ Blend Macro, Mid, and Local Noise for Final Height**
+        float finalHeight = biome.minHeight + (macroHeight * 0.5f) + (midHeight * 0.35f) + (localNoise * biome.localInfluence);
+
+        return Mathf.Clamp(finalHeight, biome.minHeight, biome.maxHeight);
     }
 
     /// <summary>
@@ -137,7 +173,6 @@ public class GameWorld : MonoBehaviour
         return new Vector3(worldX, 0, worldZ);
     }
 
-
     /// <summary>
     /// Convert a set of world positions to grid positions.
     /// </summary>
@@ -156,41 +191,51 @@ public class GameWorld : MonoBehaviour
     /// </summary>
     private void GenerateChunks()
     {
+        // Step 1: Clear previous chunks
         Chunks.Clear();
 
+        // Step 2: Pre-create all chunks before generating terrain
         for (int z = 0; z < GenerateChunksHeight; z++)
         {
             for (int x = 0; x < GenerateChunksWidth; x++)
             {
-                // Step 1: Determine the biome for this chunk
-                Biome chunkBiome = Biomes.Random();//GetBiomeForChunk(x, z, false);
+                // Step 2.1: Determine biome for this chunk
+                Biome chunkBiome = GetBiome(new Vector3Int(x, 0, z), Seed);
                 if (chunkBiome == null)
                     throw new System.ArgumentNullException("Failed to find a suitable biome.");
 
+                // Step 2.2: Create the chunk but **don't generate terrain yet**
                 Chunk newChunk = Instantiate(ChunkPrefab, this.transform);
                 newChunk.name = $"Chunk_{x}_{z}";
                 newChunk.World = this;
                 newChunk.Biome = chunkBiome;
-
-                float cx = (x * ChunkCellsWidth * CellSize);
-                float cz = (z * ChunkCellsHeight * CellSize);
-
-                // Save position for the grid position before setting world position.
                 newChunk.GridX = x;
                 newChunk.GridZ = z;
 
-                // Step 5: Set chunk's position in world space
-                newChunk.transform.position = new Vector3(cx, 0, cz);
+                // Step 2.3: Set world position
+                newChunk.transform.position = new Vector3(x * ChunkCellsWidth * CellSize, 0, z * ChunkCellsHeight * CellSize);
                 newChunk.transform.SetParent(this.transform);
 
-                // Step 4: Initialize the chunk with position & biome
-                newChunk.GenerateTerrain();
-
-                // Add to collection.
-                Chunks.Add(new Vector2Int(x,z), newChunk);
+                // Step 2.4: Add to collection **before terrain generation**
+                Chunks.Add(new Vector2Int(x, z), newChunk);
             }
         }
+
+        // Step 3: Now that all chunks exist, generate their terrain
+        foreach (var chunk in Chunks.Values)
+        {
+            chunk.GenerateTerrain();
+        }
+
     }
+
+    public Biome GetBiome(Vector3Int chunkPosition, int worldSeed)
+    {
+        System.Random rng = new System.Random(chunkPosition.x * 73856093 ^ chunkPosition.z * 19349663 ^ worldSeed);
+        int biomeIndex = rng.Next(0, Biomes.Count); // Select biome based on seed
+        return Biomes[biomeIndex];
+    }
+
 
     /// <summary>
     /// Grab the best biome to be selected for a given chunk. Also include neighbor influence as an optional parameter.

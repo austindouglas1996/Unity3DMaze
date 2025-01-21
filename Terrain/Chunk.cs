@@ -29,7 +29,7 @@ public class Chunk : MonoBehaviour
     /// </summary>
     private void Update()
     {
-        if (Vector3.Distance(Camera.main.transform.position, transform.position) < 60f)
+        if (Vector3.Distance(Camera.main.transform.position, transform.position) < 260f)
         {
             Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
         }
@@ -43,10 +43,12 @@ public class Chunk : MonoBehaviour
     /// <returns></returns>
     public bool IsEdge(int localX, int localZ)
     {
-        return (localX < 0 ||
-                localX >= World.ChunkCellsWidth||
-                localZ < 0 ||
-                localZ >= World.ChunkCellsHeight);
+        int offset = World.WorldEdgeBlend;
+
+        return (localX < offset ||
+                localX >= World.ChunkCellsWidth - offset ||
+                localZ < offset ||
+                localZ >= World.ChunkCellsHeight - offset);
     }
 
     /// <summary>
@@ -61,28 +63,26 @@ public class Chunk : MonoBehaviour
         Vector3 worldPos = World.GridToWorldPosition(GridX, GridZ, localX, localZ);
         float currentHeight = World.GetVertexHeight(Biome, worldPos.x, worldPos.z);
 
-        // We do not want to cause a stack overflow.
-        if (root == null)
-        {
-            Vector3Int neighborGridPos = GetNeighborChunkGridPosition(localX, localZ);
-            if (neighborGridPos != new Vector3(-1,-1,-1))
-            {
-                Chunk neighborChunk = World.GetChunk(neighborGridPos.x, neighborGridPos.z);
-                if (neighborChunk != null)
-                {
-                    Vector3Int neighborPos = GetLocalPositionInNeighbor(neighborChunk, localX, localZ);
-                    float neighborHeight = neighborChunk.GetHeightInChunk(neighborPos.x, neighborPos.z, this);
+        if (root != null)
+            return currentHeight;
 
-                    // Convert both local and neighbor positions into world coordinates
-                    Vector3 worldCurrentPos = World.GridToWorldPosition(GridX, GridZ, localX, localZ);
-                    Vector3 worldNeighborPos = World.GridToWorldPosition(neighborGridPos.x, neighborGridPos.z, neighborPos.x, neighborPos.z);
+        Vector3Int neighborGridPos = GetNeighborChunkGridPosition(localX, localZ);
+        if (neighborGridPos == new Vector3Int(-1,-1,-1)) 
+            return currentHeight;
 
-                    return Mathf.Lerp(currentHeight, neighborHeight, 20.5f);
-                }
-            }
-        }
+        Chunk neighborChunk = World.GetChunk(neighborGridPos.x, neighborGridPos.z);
+        if (neighborChunk == null)
+            return currentHeight;
 
-        return currentHeight;
+        Vector3Int neighborPos = GetLocalPositionInNeighbor(neighborChunk, localX, localZ);
+        float neighborHeight = neighborChunk.GetHeightInChunk(neighborPos.x, neighborPos.z, this);
+
+        // Calculate distance from the edge for smoothing
+        float edgeDistance = Mathf.Min(localX, localZ, World.ChunkCellsWidth - localX, World.ChunkCellsHeight - localZ);
+        float blendFactor = Mathf.Clamp01(edgeDistance / (World.CellSize * 25)); // Blend over ~5 cells
+
+        // Smooth the transition over a larger region
+        return Mathf.Lerp(neighborHeight, currentHeight, blendFactor);
     }
 
     /// <summary>
@@ -105,9 +105,9 @@ public class Chunk : MonoBehaviour
 
         GenerateGrass();
         PlaceGenericPrefabByPosition(World.TreePrefabs, Biome.treeScale);
-        PlaceGenericPrefabByVertex(World.FlowerPrefabs, Biome.flowerScale, 10f);
-        PlaceGenericPrefabByVertex(World.RockPrefabs, Biome.flowerScale, 10f);
-        PlaceGenericPrefabByVertex(World.GrassPrefabs, Biome.flowerScale, 3f);
+        PlaceGenericPrefabByVertex(World.FlowerPrefabs, Biome.flowerScale, 2f);
+        PlaceGenericPrefabByVertex(World.RockPrefabs, Biome.rockScale, 2f);
+        PlaceGenericPrefabByVertex(World.GrassPrefabs, Biome.grassScale, 1f);
     }
 
     /// <summary>
@@ -171,19 +171,26 @@ public class Chunk : MonoBehaviour
         {
             for (int z = 0; z < World.ChunkCellsHeight; z += 2)
             {
-                float y = 0;// GetHeightInChunk(x, z);
+                // **Convert Local Chunk Position to World Position**
+                int worldX = GridX * World.ChunkCellsWidth + x;
+                int worldZ = GridZ * World.ChunkCellsHeight + z;
 
-                float genericRandomValue = Hash(x, z, (int)World.Seed);
+                // Get height from world position
+                float y = GetHeightInChunk(x, z);
+
+                // **Use World Position for Hashing (Prevents Single Chunk Issue)**
+                float genericRandomValue = Hash(worldX, worldZ, (int)World.Seed);
                 if (genericRandomValue > scale)
                     continue;
 
+                // **Random Offsets for Natural Placement**
                 float offsetX = (float)World.Rand.NextDouble() * World.CellSize - (World.CellSize * 0.5f);
                 float offsetZ = (float)World.Rand.NextDouble() * World.CellSize - (World.CellSize * 0.5f);
-                Vector3 genericPosition = new Vector3(x * World.CellSize + offsetX, y, z * World.CellSize + offsetZ);
+                Vector3 genericPosition = new Vector3(worldX * World.CellSize + offsetX, y, worldZ * World.CellSize + offsetZ);
 
                 // **Step 4: Seeded Selection of Tree Prefab**
-                int treeIndex = World.Rand.Next(World.TreePrefabs.Count);
-                GameObject genericPrefab = genericPrefabs[Mathf.Clamp(treeIndex, 0, genericPrefabs.Count - 1)];
+                int genericIndex = World.Rand.Next(genericPrefabs.Count);
+                GameObject genericPrefab = genericPrefabs[Mathf.Clamp(genericIndex, 0, genericPrefabs.Count - 1)];
 
                 Instantiate(genericPrefab, genericPosition, Quaternion.Euler(0, World.Rand.Next(0, 360), 0), transform);
             }
@@ -199,16 +206,16 @@ public class Chunk : MonoBehaviour
     /// <param name="multiplier"></param>
     private void PlaceGenericPrefabByVertex(List<GameObject> genericPrefabs, float scale, float multiplier)
     {
-        Vector3[] vertices = Terrain.Vertices;
-        int[] triangles = Terrain.Triangles;
-
         // Loop through each triangle in the mesh
-        for (int i = 0; i < Terrain.Vertices.Length; i += 3)
+        for (int i = 0; i < Terrain.Triangles.Length; i += 3)
         {
+            if (Random.value > 0.4)
+                continue;
+
             // Get the vertices of the triangle
-            Vector3 vertexA = transform.TransformPoint(vertices[triangles[i]]);
-            Vector3 vertexB = transform.TransformPoint(vertices[triangles[i + 1]]);
-            Vector3 vertexC = transform.TransformPoint(vertices[triangles[i + 2]]);
+            Vector3 vertexA = transform.TransformPoint(Terrain.Vertices[Terrain.Triangles[i]]);
+            Vector3 vertexB = transform.TransformPoint(Terrain.Vertices[Terrain.Triangles[i + 1]]);
+            Vector3 vertexC = transform.TransformPoint(Terrain.Vertices[Terrain.Triangles[i + 2]]);
 
             // Calculate the normal of the triangle
             Vector3 triangleNormal = Vector3.Cross(vertexB - vertexA, vertexC - vertexA).normalized;
@@ -221,13 +228,13 @@ public class Chunk : MonoBehaviour
             // **Find biome at this triangle's location**
             float temperature = Mathf.PerlinNoise(tx * World.TemperatureNoiseScale, tz * World.TemperatureNoiseScale);
             float humidity = Mathf.PerlinNoise(tx * World.HumidityNoiseScale, tz * World.HumidityNoiseScale);
-            float baseHeight = Mathf.PerlinNoise(tx * Biome.noiseScale, tz * Biome.noiseScale);
+            float baseHeight = Mathf.PerlinNoise(tx * Biome.localNoiseScale, tz * Biome.localNoiseScale);
 
             // Randomly place grass within the triangle
-            for (int j = 0; j < (scale * multiplier) * 2; j++)
+            for (int j = 0; j < (scale * multiplier); j++)
             {
                 // Offset the position slightly to avoid overlapping
-                Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f; // Lift slightly above surface
+                Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f; // Lift slightly above surfacen = 
 
                 GameObject genericInstance = Instantiate(
                     genericPrefabs[World.Rand.Next(0, genericPrefabs.Count)],
@@ -277,8 +284,6 @@ public class Chunk : MonoBehaviour
 
         return new Vector3Int(neighborGridX, 0, neighborGridZ);
     }
-
-
 
     /// <summary>
     /// Retrieve the neighor position of an edge.
