@@ -39,15 +39,14 @@ public class PolygonTerrain : MonoBehaviour
     /// <param name="localX"></param>
     /// <param name="localZ"></param>
     /// <returns></returns>
-    public bool IsEdge(int localX, int localZ)
+    public bool IsEdge(int localX, int localZ, int chunkSize = 20, int offset = 0)
     {
-        int offset = World.WorldEdgeBlend;
-
-        return (localX < offset ||
-                localX >= World.ChunkCellsWidth - offset ||
-                localZ < offset ||
-                localZ >= World.ChunkCellsHeight - offset);
+        return (localX <= offset ||
+                localX >= chunkSize - 1 - offset ||
+                localZ <= offset ||
+                localZ >= chunkSize - 1 - offset);
     }
+
 
     public void Generate(GameWorld gameWorld, Chunk chunk)
     {

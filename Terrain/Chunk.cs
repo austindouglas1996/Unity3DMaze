@@ -31,7 +31,7 @@ public class Chunk : MonoBehaviour
     {
         if (Vector3.Distance(Camera.main.transform.position, transform.position) < 260f)
         {
-            Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
+            //Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
         }
     }
 
@@ -44,6 +44,18 @@ public class Chunk : MonoBehaviour
     /// <returns></returns>
     public float GetHeightInChunk(int localX, int localZ, Chunk root = null)
     {
+        if (!Terrain.IsEdge(localX, localZ))
+        {
+            Vector3 worldPos1 = World.GridToWorldPosition(X, Z, localX, localZ);
+            float currentHeight1 = World.GetVertexHeight(Biome, worldPos1.x, worldPos1.z);
+            return currentHeight1;
+
+            var closestEdge = GetClosestEdge(localX, localZ);
+
+            localX = closestEdge.x;
+            localZ = closestEdge.z;
+        }
+
         Vector3 worldPos = World.GridToWorldPosition(X, Z, localX, localZ);
         float currentHeight = World.GetVertexHeight(Biome, worldPos.x, worldPos.z);
 
@@ -221,6 +233,34 @@ public class Chunk : MonoBehaviour
                 genericInstance.transform.localScale = Vector3.one * randomScale;
             }
         }
+    }
+
+    /// <summary>
+    /// Get the closest edge point based on a local position in the chunk.
+    /// </summary>
+    /// <param name="localX"></param>
+    /// <param name="localZ"></param>
+    /// <returns></returns>
+    private Vector3Int GetClosestEdge(int localX, int localZ)
+    {
+        // Calculate distances to each edge of the chunk
+        int distLeft = localX;
+        int distRight = World.ChunkCellsWidth - localX - 1;
+        int distTop = localZ;
+        int distBottom = World.ChunkCellsHeight - localZ - 1;
+
+        // Find the minimum distance
+        int minDist = Mathf.Min(distLeft, distRight, distTop, distBottom);
+
+        // Determine which edge is closest and return its coordinate
+        if (minDist == distLeft)
+            return new Vector3Int(0,0, localZ); // Left edge
+        if (minDist == distRight)
+            return new Vector3Int(World.ChunkCellsWidth - 1,0, localZ); // Right edge
+        if (minDist == distTop)
+            return new Vector3Int(localX,0, 0); // Top edge
+
+        return new Vector3Int(localX,0, World.ChunkCellsHeight - 1); // Bottom edge
     }
 
     /// <summary>
