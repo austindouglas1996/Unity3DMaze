@@ -123,23 +123,23 @@ public class GameWorld : MonoBehaviour
     /// <returns></returns>
     public float GetVertexHeight(Biome biome, float worldX, float worldZ)
     {
-        // 🌍 **1️⃣ Generate Large-Scale Macro Terrain (Mountains, Oceans)**
+        // Generate Large-Scale Macro Terrain (Mountains, Oceans)**
         float macroNoise = Mathf.PerlinNoise((worldX + Seed) * biome.macroNoiseScale, (worldZ + Seed) * biome.macroNoiseScale);
         macroNoise = macroNoise * 2f - 1f; // Normalize from [0,1] to [-1,1] for better contrast
         float macroHeight = macroNoise * biome.macroInfluence * (biome.maxHeight - biome.minHeight);
 
-        // ⛰️ **2️⃣ Generate Mid-Scale Hills & Regional Variation**
+        // Generate Mid-Scale Hills & Regional Variation**
         float midNoise = Mathf.PerlinNoise((worldX + Seed) * biome.midNoiseScale, (worldZ + Seed) * biome.midNoiseScale);
         midNoise = midNoise * 2f - 1f; // Normalize [-1,1]
         float midHeight = midNoise * biome.midInfluence * (biome.maxHeight - biome.minHeight);
 
-        // 🌿 **3️⃣ Generate Local-Scale Detail Noise (Hills, Small Bumps)**
+        // Generate Local-Scale Detail Noise (Hills, Small Bumps)**
         float localNoise = Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale, (worldZ + Seed) * biome.localNoiseScale);
         localNoise += Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale * 0.5f, (worldZ + Seed) * biome.localNoiseScale * 0.5f) * 0.5f;
         localNoise += Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale * 0.25f, (worldZ + Seed) * biome.localNoiseScale * 0.25f) * 0.25f;
         localNoise /= 1.75f; // Normalize
 
-        // 🏞️ **4️⃣ Blend Macro, Mid, and Local Noise for Final Height**
+        // Blend Macro, Mid, and Local Noise for Final Height**
         float finalHeight = biome.minHeight + (macroHeight * 0.5f) + (midHeight * 0.35f) + (localNoise * biome.localInfluence);
 
         return Mathf.Clamp(finalHeight, biome.minHeight, biome.maxHeight);
@@ -151,11 +151,11 @@ public class GameWorld : MonoBehaviour
     /// <param name="gridX"></param>
     /// <param name="gridZ"></param>
     /// <returns></returns>
-    public Vector3 GridToWorldPosition(int gridX, int gridZ)
+    public Vector3Int GridToWorldPosition(int gridX, int gridZ)
     {
-        float worldX = (gridX * ChunkCellsWidth * CellSize);
-        float worldZ = (gridZ * ChunkCellsHeight * CellSize);
-        return new Vector3(worldX, 0, worldZ);
+        int worldX = (gridX * ChunkCellsWidth * CellSize);
+        int worldZ = (gridZ * ChunkCellsHeight * CellSize);
+        return new Vector3Int(worldX, 0, worldZ);
     }
 
     /// <summary>
@@ -166,11 +166,11 @@ public class GameWorld : MonoBehaviour
     /// <param name="localX"></param>
     /// <param name="localZ"></param>
     /// <returns></returns>
-    public Vector3 GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
+    public Vector3Int GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
     {
-        float worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
-        float worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
-        return new Vector3(worldX, 0, worldZ);
+        int worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
+        int worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
+        return new Vector3Int(worldX, 0, worldZ);
     }
 
     /// <summary>
@@ -200,7 +200,7 @@ public class GameWorld : MonoBehaviour
             for (int x = 0; x < GenerateChunksWidth; x++)
             {
                 // Step 2.1: Determine biome for this chunk
-                Biome chunkBiome = GetBiome(new Vector3Int(x, 0, z), Seed);
+                Biome chunkBiome = GetBiome(new Vector3Int(x, 0, z));
                 if (chunkBiome == null)
                     throw new System.ArgumentNullException("Failed to find a suitable biome.");
 
@@ -209,8 +209,8 @@ public class GameWorld : MonoBehaviour
                 newChunk.name = $"Chunk_{x}_{z}";
                 newChunk.World = this;
                 newChunk.Biome = chunkBiome;
-                newChunk.GridX = x;
-                newChunk.GridZ = z;
+                newChunk.X = x;
+                newChunk.Z = z;
 
                 // Step 2.3: Set world position
                 newChunk.transform.position = new Vector3(x * ChunkCellsWidth * CellSize, 0, z * ChunkCellsHeight * CellSize);
@@ -227,61 +227,6 @@ public class GameWorld : MonoBehaviour
             chunk.GenerateTerrain();
         }
 
-    }
-
-    public Biome GetBiome(Vector3Int chunkPosition, int worldSeed)
-    {
-        System.Random rng = new System.Random(chunkPosition.x * 73856093 ^ chunkPosition.z * 19349663 ^ worldSeed);
-        int biomeIndex = rng.Next(0, Biomes.Count); // Select biome based on seed
-        return Biomes[biomeIndex];
-    }
-
-
-    /// <summary>
-    /// Grab the best biome to be selected for a given chunk. Also include neighbor influence as an optional parameter.
-    /// Neighbor influence will keep biomes consistent with one another.
-    /// </summary>
-    /// <param name="gridX">The X position in the grid.</param>
-    /// <param name="gridZ">The Z position in the grid.</param>
-    /// <param name="neighborInfluence"></param>
-    /// <returns></returns>
-    private Biome GetBiomeForChunk(int gridX, int gridZ, bool neighborInfluence)
-    {
-        float temp = GetTemperatureForChunk(gridX, gridZ);
-        float humi = GetHumidityForChunk(gridX, gridZ);
-
-        Biome bestBiome = Biomes.Random();
-        float bestScore = float.MaxValue;
-
-        // Should we grab the neighbor biome influence. 
-        List<Biome> neighborInfluences = neighborInfluence ? GetNeighborsBiomes(gridX, gridZ) : new List<Biome>();
-
-        foreach (Biome biome in Biomes)
-        {
-            float tempDiff = Mathf.Abs(temp - Mathf.Lerp(biome.minTemp, biome.maxTemp, 0.5f));
-            float humidityDiff = Mathf.Abs(humi - Mathf.Lerp(biome.minHumidity, biome.maxHumidity, 0.5f));
-
-            float biomeScore = tempDiff + humidityDiff;
-
-            // Include the strength of the current biome.
-            biomeScore *= (1f - biome.strength);
-
-            // Find if we should upgrade the biome.
-            int matchingNeighbors = neighborInfluences.Count(n => n == biome);
-            if (matchingNeighbors >= 4) // If 4+ neighbors match, upgrade biome
-            {
-                bestBiome = GetStrongerBiome(biome);
-                break;
-            }
-
-            if (biomeScore < bestScore)
-            {
-                bestScore = biomeScore;
-                bestBiome = biome;
-            }
-        }
-
-        return bestBiome;
     }
 
     /// <summary>
@@ -313,29 +258,15 @@ public class GameWorld : MonoBehaviour
     }
 
     /// <summary>
-    /// Retrieve the next level of the biome.
+    /// Retrieve the next biome in the most basic way possible.
     /// </summary>
-    /// <param name="currentBiome"></param>
+    /// <param name="chunkPosition"></param>
     /// <returns></returns>
-    private Biome GetStrongerBiome(Biome currentBiome)
+    private Biome GetBiome(Vector3Int chunkPosition)
     {
-        Dictionary<string, string> biomeEvolution = new Dictionary<string, string>()
-        {
-            { "Plains", "SmallHills" },
-            { "SmallHills", "LargeHills" },
-            { "LargeHills", "SmallMountains" },
-            { "SmallMountains", "MediumMountains" },
-            { "MediumMountains", "LargeMountains" },
-            { "Grassland", "DenseForest" },
-            { "DenseForest", "ThickForest" },
-            { "ShallowWater", "DeepWater" },
-            { "DeepWater", "Ocean" }
-        };
-
-        if (biomeEvolution.ContainsKey(currentBiome.name))
-            return Biomes.Find(b => b.name == biomeEvolution[currentBiome.name]);
-
-        return currentBiome; // If no upgrade exists, return itself
+        System.Random rng = new System.Random(chunkPosition.x * 73856093 ^ chunkPosition.z * 19349663 ^ Seed);
+        int biomeIndex = rng.Next(0, Biomes.Count); // Select biome based on seed
+        return Biomes[biomeIndex];
     }
 
     /// <summary>
@@ -344,39 +275,22 @@ public class GameWorld : MonoBehaviour
     /// <param name="x">The X position in the grid.</param>
     /// <param name="z">The Z position in the grid.</param>
     /// <returns></returns>
-    private List<(int x, int z)> GetNeighbors(int x, int z)
+    private List<(int x, int z)> GetNeighbors(Chunk chunk)
     {
         List<(int x, int z)> neighbors = new List<(int, int)>
         {
             // Cardinal Directions
-            (x - 1, z), // Left
-            (x + 1, z), // Right
-            (x, z - 1), // Bottom
-            (x, z + 1), // Up
+            (chunk.X - 1, chunk.Z), // Left
+            (chunk.X + 1, chunk.Z), // Right
+            (chunk.X, chunk.Z - 1), // Bottom
+            (chunk.X, chunk.Z + 1), // Up
 
             // Diagonal Corners
-            (x - 1, z - 1), // Bottom-Left
-            (x + 1, z - 1), // Bottom-Right
-            (x - 1, z + 1), // Top-Left
-            (x + 1, z + 1)  // Top-Right
+            (chunk.X - 1, chunk.Z - 1), // Bottom-Left
+            (chunk.X + 1, chunk.Z - 1), // Bottom-Right
+            (chunk.X - 1, chunk.Z + 1), // Top-Left
+            (chunk.X + 1, chunk.Z + 1)  // Top-Right
         };
-
-        return neighbors;
-    }
-
-    /// <summary>
-    /// Get a list of neighbor chunk biomes.
-    /// </summary>
-    /// <param name="x">The X position in the grid.</param>
-    /// <param name="z">The Z position in the grid.</param>
-    /// <returns></returns>
-    private List<Biome> GetNeighborsBiomes(int x, int z)
-    {
-        List<Biome> neighbors = new List<Biome>();
-        foreach (var neighbor in GetNeighbors(x,z))
-        {
-            neighbors.Add(GetBiomeForChunk(neighbor.x, neighbor.z, false));
-        }
 
         return neighbors;
     }

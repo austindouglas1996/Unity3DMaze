@@ -24,6 +24,31 @@ public class PolygonTerrain : MonoBehaviour
     private Chunk Chunk;
     private GameWorld World;
 
+    /// <summary>
+    /// Retrieve the center point of this terrain.
+    /// </summary>
+    /// <returns></returns>
+    public Vector3Int GetCenter()
+    {
+        return new Vector3Int(Width /2 , 0, Height /2);
+    }
+
+    /// <summary>
+    /// Returns whether the position is within an edge range.
+    /// </summary>
+    /// <param name="localX"></param>
+    /// <param name="localZ"></param>
+    /// <returns></returns>
+    public bool IsEdge(int localX, int localZ)
+    {
+        int offset = World.WorldEdgeBlend;
+
+        return (localX < offset ||
+                localX >= World.ChunkCellsWidth - offset ||
+                localZ < offset ||
+                localZ >= World.ChunkCellsHeight - offset);
+    }
+
     public void Generate(GameWorld gameWorld, Chunk chunk)
     {
         Chunk = chunk;
@@ -66,7 +91,7 @@ public class PolygonTerrain : MonoBehaviour
             {
                 Vertices[sIndex] = new Vector3(x * World.CellSize, Chunk.GetHeightInChunk(x, z), z * World.CellSize);
 
-                if (Chunk.IsEdge(x, z) && World.ShowEdgeHeat)
+                if (IsEdge(x, z) && World.ShowEdgeHeat)
                 {
                     Colors[sIndex] = Color.red;
                 }
