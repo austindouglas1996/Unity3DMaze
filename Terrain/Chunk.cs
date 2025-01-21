@@ -31,7 +31,7 @@ public class Chunk : MonoBehaviour
     {
         if (Vector3.Distance(Camera.main.transform.position, transform.position) < 260f)
         {
-            //Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
+            Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
         }
     }
 
@@ -52,9 +52,10 @@ public class Chunk : MonoBehaviour
             return currentHeight;
 
         Vector3Int neighborPos = GetMappedLocalPosition(neighbor, localX, localZ);
-        float neighborHeight = GetHeightInChunk(neighborPos.x, neighborPos.z, this);
+        float neighborHeight = neighbor.GetHeightInChunk(neighborPos.x, neighborPos.z, neighbor);
 
-        return Mathf.Lerp(currentHeight, neighborHeight, 20f);
+        // Blend between current and neighbor height
+        return Mathf.Lerp(currentHeight, neighborHeight, 0.5f);
     }
 
     /// <summary>
@@ -68,7 +69,7 @@ public class Chunk : MonoBehaviour
             if (Biome == null && World == null)
                 throw new System.Exception("Biome and world is null");
             if (Biome == null)
-                throw new System.Exception("Biome is null"); 
+                throw new System.Exception("Biome is null");
             if (World == null)
                 throw new System.Exception("World is null");
         }
@@ -230,6 +231,8 @@ public class Chunk : MonoBehaviour
     /// <returns></returns>
     private Chunk GetClosestNeighbor(int localX, int localZ)
     {
+        if (!Terrain.IsEdge(localX, localZ)) return null;
+
         int neighborGridX = X;
         int neighborGridZ = Z;
 
@@ -256,53 +259,25 @@ public class Chunk : MonoBehaviour
         return World.GetChunk(neighborGridX, neighborGridZ);
     }
 
-    private Vector3Int GetNeighborDifference(Chunk b)
-    {
-        int diffX = b.X - this.X;
-        int diffZ = b.Z - this.Z;
-
-        // Normalize the difference to -1, 0, or 1
-        diffX = Mathf.Clamp(diffX, -1, 1);
-        diffZ = Mathf.Clamp(diffZ, -1, 1);
-
-        return new Vector3Int(diffX, 0, diffZ);
-    }
-
     /// <summary>
-    /// Retrieve the neighbor chunk position of a point based in the current chunk. This is used
-    /// for finding the corresponding point in chunk B when looking at chunk A.
+    /// Maps a local position in this chunk to the corresponding position in a neighboring chunk.
     /// </summary>
-    /// <param name="aX"></param>
-    /// <param name="aZ"></param>
-    /// <returns></returns>
+    /// <param name="b">The neighboring chunk</param>
+    /// <param name="aX">Local X coordinate in this chunk</param>
+    /// <param name="aZ">Local Z coordinate in this chunk</param>
+    /// <returns>Mapped local position in chunk B</returns>
     private Vector3Int GetMappedLocalPosition(Chunk b, int aX, int aZ)
     {
-        var neighborDiff = GetNeighborDifference(b);
-        
-        int x = aX;
-        int z = aZ;
+        if (b == this)
+            throw new System.ArgumentException("Tried to map local position to local chunk.");
 
-        switch(neighborDiff.x)
-        {
-            case -1:
-                x = World.ChunkCellsHeight;
-                break;
-            case 1:
-                x = 0;
-                break;
-        }
+        Vector3Int neighborDiff = new Vector3Int(Mathf.Clamp(b.X - X, -1, 1), 0, Mathf.Clamp(b.Z - Z, -1, 1));
 
-        switch(neighborDiff.z)
-        {
-            case -1:
-                z = World.ChunkCellsWidth;
-                break;
-            case 1:
-                z = 0;
-                break;
-        }
-
-        return new Vector3Int(x,0,z);
+        return new Vector3Int(
+            (neighborDiff.x == -1) ? (World.ChunkCellsWidth - 1) : (neighborDiff.x == 1 ? 0 : aX),
+            0,
+            (neighborDiff.z == -1) ? (World.ChunkCellsHeight - 1) : (neighborDiff.z == 1 ? 0 : aZ)
+        );
     }
 
     /// <summary>
@@ -331,14 +306,5 @@ public class Chunk : MonoBehaviour
         int hash = (x * 73856093) ^ (z * 19349663) ^ (seed * 83492791);
         hash = (hash << 13) ^ hash;
         return (hash & 0x7FFFFFFF) / (float)0x7FFFFFFF; // Normalize to 0-1
-    }
-
-    public static Vector3Int GetChunkOffset(Vector3Int targetChunk, Vector3Int referenceChunk)
-    {
-        return new Vector3Int(
-            targetChunk.x - referenceChunk.x,
-            targetChunk.y - referenceChunk.y,
-            targetChunk.z - referenceChunk.z
-        );
     }
 }

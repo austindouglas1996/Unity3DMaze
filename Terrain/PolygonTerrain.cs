@@ -18,8 +18,8 @@ public class PolygonTerrain : MonoBehaviour
     public int[] Triangles;
     private Color[] Colors;
 
-    private int Width;
-    private int Height;
+    public int Width;
+    public int Height;
 
     private Chunk Chunk;
     private GameWorld World;
