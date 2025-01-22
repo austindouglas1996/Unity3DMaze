@@ -37,8 +37,8 @@ public class GameWorld : MonoBehaviour
     /// </summary>
     [Range(0f, 1f)] public float HumidityNoiseScale = 0.3f;
 
-    [Range(0,10)] public int WorldEdgeBlend = 1;
-    public float BiomeBlendDistance = 15f;
+    [Range(0f,1f)] public float WorldEdgeBlend = 1f;
+
     /// <summary>
     /// A list of biomes to use.
     /// </summary>
@@ -121,8 +121,14 @@ public class GameWorld : MonoBehaviour
     /// <param name="worldX"></param>
     /// <param name="worldZ"></param>
     /// <returns></returns>
-    public float GetVertexHeight(Biome biome, float worldX, float worldZ)
+    public float GetVertexHeight(Chunk chunk, int localX, int localZ)
     {
+        Biome biome = chunk.Biome;
+
+        Vector3 worldPos = GridToWorldPosition(chunk.X, chunk.Z, localX, localZ);
+        float worldX = worldPos.x;
+        float worldZ = worldPos.z;
+
         // Generate Large-Scale Macro Terrain (Mountains, Oceans)**
         float macroNoise = Mathf.PerlinNoise((worldX + Seed) * biome.macroNoiseScale, (worldZ + Seed) * biome.macroNoiseScale);
         macroNoise = macroNoise * 2f - 1f; // Normalize from [0,1] to [-1,1] for better contrast
@@ -151,11 +157,11 @@ public class GameWorld : MonoBehaviour
     /// <param name="gridX"></param>
     /// <param name="gridZ"></param>
     /// <returns></returns>
-    public Vector3Int GridToWorldPosition(int gridX, int gridZ)
+    public Vector3 GridToWorldPosition(int gridX, int gridZ)
     {
-        int worldX = (gridX * ChunkCellsWidth * CellSize);
-        int worldZ = (gridZ * ChunkCellsHeight * CellSize);
-        return new Vector3Int(worldX, 0, worldZ);
+        float worldX = (gridX * ChunkCellsWidth * CellSize);
+        float worldZ = (gridZ * ChunkCellsHeight * CellSize);
+        return new Vector3(worldX, 0, worldZ);
     }
 
     /// <summary>
@@ -166,11 +172,11 @@ public class GameWorld : MonoBehaviour
     /// <param name="localX"></param>
     /// <param name="localZ"></param>
     /// <returns></returns>
-    public Vector3Int GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
+    public Vector3 GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
     {
-        int worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
-        int worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
-        return new Vector3Int(worldX, 0, worldZ);
+        float worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
+        float worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
+        return new Vector3(worldX, 0, worldZ);
     }
 
     /// <summary>

@@ -42,32 +42,21 @@ public class Chunk : MonoBehaviour
     /// <param name="x"></param>
     /// <param name="z"></param>
     /// <returns></returns>
-    public float GetHeightInChunk(int localX, int localZ, Chunk root = null)
+    public float GetHeightInChunk(int localX, int localZ)
     {
-        if (!Terrain.IsEdge(localX, localZ))
+        Vector3 worldPos = World.GridToWorldPosition(X, Z, localX, localZ);
+        float currentHeight = World.GetVertexHeight(this, localX, localZ);
+
+        Chunk neighborChunk = GetClosestNeighbor(localX, localZ);
+        if (neighborChunk != null)
         {
-            Vector3 worldPos1 = World.GridToWorldPosition(X, Z, localX, localZ);
-            float currentHeight1 = World.GetVertexHeight(Biome, worldPos1.x, worldPos1.z);
-            return currentHeight1;
+            Vector3Int neighborPos = GetMappedLocalPosition(neighborChunk, localX, localZ);
+            float neighborHeight = World.GetVertexHeight(neighborChunk, neighborPos.x, neighborPos.z);
 
-            var closestEdge = GetClosestEdge(localX, localZ);
-
-            localX = closestEdge.x;
-            localZ = closestEdge.z;
+            return Mathf.Lerp(currentHeight, neighborHeight, World.WorldEdgeBlend);
         }
 
-        Vector3 worldPos = World.GridToWorldPosition(X, Z, localX, localZ);
-        float currentHeight = World.GetVertexHeight(Biome, worldPos.x, worldPos.z);
-
-        Chunk neighbor = root == this ? null : GetClosestNeighbor(localX, localZ);
-        if (neighbor == null)
-            return currentHeight;
-
-        Vector3Int neighborPos = GetMappedLocalPosition(neighbor, localX, localZ);
-        float neighborHeight = neighbor.GetHeightInChunk(neighborPos.x, neighborPos.z, neighbor);
-
-        // Blend between current and neighbor height
-        return Mathf.Lerp(currentHeight, neighborHeight, 0.5f);
+        return currentHeight;
     }
 
     /// <summary>
@@ -236,34 +225,6 @@ public class Chunk : MonoBehaviour
     }
 
     /// <summary>
-    /// Get the closest edge point based on a local position in the chunk.
-    /// </summary>
-    /// <param name="localX"></param>
-    /// <param name="localZ"></param>
-    /// <returns></returns>
-    private Vector3Int GetClosestEdge(int localX, int localZ)
-    {
-        // Calculate distances to each edge of the chunk
-        int distLeft = localX;
-        int distRight = World.ChunkCellsWidth - localX - 1;
-        int distTop = localZ;
-        int distBottom = World.ChunkCellsHeight - localZ - 1;
-
-        // Find the minimum distance
-        int minDist = Mathf.Min(distLeft, distRight, distTop, distBottom);
-
-        // Determine which edge is closest and return its coordinate
-        if (minDist == distLeft)
-            return new Vector3Int(0,0, localZ); // Left edge
-        if (minDist == distRight)
-            return new Vector3Int(World.ChunkCellsWidth - 1,0, localZ); // Right edge
-        if (minDist == distTop)
-            return new Vector3Int(localX,0, 0); // Top edge
-
-        return new Vector3Int(localX,0, World.ChunkCellsHeight - 1); // Bottom edge
-    }
-
-    /// <summary>
     /// Returns the neighbor grid position.
     /// </summary>
     /// <param name="localX"></param>
@@ -271,30 +232,30 @@ public class Chunk : MonoBehaviour
     /// <returns></returns>
     private Chunk GetClosestNeighbor(int localX, int localZ)
     {
-        if (!Terrain.IsEdge(localX, localZ)) return null;
-
         int neighborGridX = X;
         int neighborGridZ = Z;
 
-        // Calculate distances to each edge of the chunk
-        int distLeft = localX;
-        int distRight = World.ChunkCellsWidth - localX;
-        int distTop = localZ;
-        int distBottom = World.ChunkCellsHeight - localZ;
-
-        // Find the closest boundary
-        int minDist = Mathf.Min(distLeft, distRight, distTop, distBottom);
-
-        // Determine which direction is closest and assign neighbor coordinates
-        if (minDist == distLeft)
+        // **X Movement (Up/Down in Grid)**
+        // If we're near the top edge, move up in the grid (decreasing GridX)
+        if (localX < 0)
             neighborGridX -= 1;
-        else if (minDist == distRight)
+
+        // If we're near the bottom edge, move down in the grid (increasing GridX)
+        if (localX >= World.ChunkCellsWidth)
             neighborGridX += 1;
 
-        if (minDist == distTop)
+        // **Z Movement (Left/Right in Grid)**
+        // If we're near the left edge, move left in the grid (decreasing GridZ)
+        if (localZ < 0)
             neighborGridZ -= 1;
-        else if (minDist == distBottom)
+
+        // If we're near the right edge, move right in the grid (increasing GridZ)
+        if (localZ >= World.ChunkCellsHeight)
             neighborGridZ += 1;
+
+        // Don't return our chunk.
+        if (neighborGridX == X && neighborGridZ == Z)
+            return null; // throw new System.ArgumentException("Failed to locate neighbor chunk.");
 
         return World.GetChunk(neighborGridX, neighborGridZ);
     }
