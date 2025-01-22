@@ -47,13 +47,13 @@ public class Chunk : MonoBehaviour
         Vector3 worldPos = World.GridToWorldPosition(X, Z, localX, localZ);
         float currentHeight = World.GetVertexHeight(this, localX, localZ);
 
-        Chunk neighborChunk = GetClosestNeighbor(localX, localZ);
+        var (neighborChunk, distanceFactor) = GetClosestNeighbor(localX, localZ);
         if (neighborChunk != null)
         {
             Vector3Int neighborPos = GetMappedLocalPosition(neighborChunk, localX, localZ);
             float neighborHeight = World.GetVertexHeight(neighborChunk, neighborPos.x, neighborPos.z);
 
-            return Mathf.Lerp(currentHeight, neighborHeight, World.WorldEdgeBlend);
+            return Mathf.Lerp(currentHeight, neighborHeight, distanceFactor * World.WorldEdgeBlend);
         }
 
         return currentHeight;
@@ -230,10 +230,14 @@ public class Chunk : MonoBehaviour
     /// <param name="localX"></param>
     /// <param name="localZ"></param>
     /// <returns></returns>
-    private Chunk GetClosestNeighbor(int localX, int localZ)
+    private (Chunk, float) GetClosestNeighbor(int localX, int localZ)
     {
         int neighborGridX = X;
         int neighborGridZ = Z;
+
+        int maxDistance = 5;
+        float xDistance = 0;
+        float zDistance = 0;
 
         // **X Movement (Up/Down in Grid)**
         // If we're near the top edge, move up in the grid (decreasing GridX)
@@ -255,9 +259,9 @@ public class Chunk : MonoBehaviour
 
         // Don't return our chunk.
         if (neighborGridX == X && neighborGridZ == Z)
-            return null; // throw new System.ArgumentException("Failed to locate neighbor chunk.");
+            return (null,0f); // throw new System.ArgumentException("Failed to locate neighbor chunk.");
 
-        return World.GetChunk(neighborGridX, neighborGridZ);
+        return (World.GetChunk(neighborGridX, neighborGridZ), 3f);
     }
 
     /// <summary>
