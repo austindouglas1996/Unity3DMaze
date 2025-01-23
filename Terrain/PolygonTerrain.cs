@@ -82,25 +82,81 @@ public class PolygonTerrain : MonoBehaviour
 
     private void CalculateVertices()
     {
-        // Calculate vertices
+        float[,] heightMap = new float[Width + 1, Height + 1];
+
+        // First Pass: Generate initial heights
+        for (int z = 0; z <= Height; z++)
+        {
+            for (int x = 0; x <= Width; x++)
+            {
+                heightMap[x, z] = Chunk.GetHeightInChunk(x, z);
+            }
+        }
+
+        // Second Pass: Apply smoothing
         int sIndex = 0;
         for (int z = 0; z <= Height; z++)
         {
             for (int x = 0; x <= Width; x++)
             {
-                Vertices[sIndex] = new Vector3(x * World.CellSize, Chunk.GetHeightInChunk(x, z), z * World.CellSize);
+                float currentY = heightMap[x, z];
 
+                // Sum of heights and neighbor count for averaging
+                float sumHeight = currentY;
+                int count = 1;
+
+                // Define the 3x3 neighborhood offsets
+                int[,] offsets = {
+                    { -1, -1 }, {  0, -1 }, {  1, -1 },
+                    { -1,  0 }, {  0,  0 }, {  1,  0 },
+                    { -1,  1 }, {  0,  1 }, {  1,  1 }};
+
+                float maxDifference = 0f; // Store the max height difference in the neighborhood
+                for (int i = 0; i < offsets.GetLength(0); i++)
+                {
+                    int nx = x + offsets[i, 0];
+                    int nz = z + offsets[i, 1];
+
+                    // Ensure neighbor is within bounds
+                    if (nx >= 0 && nx <= Width && nz >= 0 && nz <= Height)
+                    {
+                        float neighborHeight = heightMap[nx, nz];
+
+                        // Track max difference for adaptive smoothing
+                        float heightDiff = Mathf.Abs(currentY - neighborHeight);
+                        maxDifference = Mathf.Max(maxDifference, heightDiff);
+
+                        sumHeight += neighborHeight;
+                        count++;
+                    }
+                }
+
+                // Adaptive smoothing factor based on terrain roughness
+                float smoothingFactor = Mathf.Clamp01(maxDifference / 5f); // Adjust divisor to control smoothing strength
+
+                // Blend original height with smoothed height
+                currentY = Mathf.Lerp(currentY, sumHeight / count, smoothingFactor);
+
+                // Assign the smoothed height
+                Vertices[sIndex] = new Vector3(x * World.CellSize, currentY, z * World.CellSize);
+
+                // Apply edge heat visualization
                 if (IsEdge(x, z) && World.ShowEdgeHeat)
                 {
                     Colors[sIndex] = Color.red;
                 }
                 else
-                    Colors[sIndex] = Chunk.Biome.terrainColor;
+                {
+                    var worldPos = World.GridToWorldPosition(Chunk.X, Chunk.Z, x, z);
+                    Colors[sIndex] = World.GetBiome(worldPos.x, worldPos.z).terrainColor;
+                }
 
                 sIndex++;
             }
         }
     }
+
+
 
     private void AssignUV()
     {
