@@ -1,5 +1,8 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 [RequireComponent(typeof(PolygonTerrain))]
 public class Chunk : MonoBehaviour
@@ -22,6 +25,7 @@ public class Chunk : MonoBehaviour
     private void Start()
     {
         this.Terrain = this.GetComponent<PolygonTerrain>();
+        this.AddComponent<MeshCollider>();
     }
 
     /// <summary>
@@ -29,9 +33,11 @@ public class Chunk : MonoBehaviour
     /// </summary>
     private void Update()
     {
+        return;
         if (Vector3.Distance(Camera.main.transform.position, transform.position) < 260f)
         {
-            //Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
+            if (this.Biome.grassScale != 0)
+                Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
         }
     }
 
@@ -75,7 +81,7 @@ public class Chunk : MonoBehaviour
                 throw new System.Exception("World is null");
         }
 
-        this.Terrain.Generate(World, this);
+        this.Terrain.Generate(this.World, this);
 
         GenerateGrass();
         PlaceGenericPrefabByPosition(World.TreePrefabs, Biome.treeScale);
@@ -88,8 +94,10 @@ public class Chunk : MonoBehaviour
     /// Generate Mesh grass? Idk, ChatGBT made this as I was struggling way too much with how
     /// to render objects of this much value.
     /// </summary>
-    private void GenerateGrass()
+    public void GenerateGrass()
     {
+        if (this.Biome.grassScale == 0f) return;
+
         GameObject grassPrefab = World.GrassPrefabs[0];
         if (grassPrefab == null) return; // Ensure prefab exists
 
@@ -115,21 +123,35 @@ public class Chunk : MonoBehaviour
 
         if (grassMesh == null || grassMaterial == null) return; // Ensure assets are assigned
 
-        int grassDensity = Mathf.FloorToInt(Biome.grassScale * 55000); // Adjust density dynamically
-
-        for (int i = 0; i < grassDensity; i++)
+        // Loop through each triangle in the mesh
+        for (int i = 0; i < Terrain.Triangles.Length; i += 3)
         {
-            float worldX = transform.position.x + Random.Range(0, World.ChunkCellsWidth * 4f);
-            float worldZ = transform.position.z + Random.Range(0, World.ChunkCellsHeight * 4f);
-            float y = 0;// GetHeightInChunk((int)worldX, (int)worldZ); // Get terrain height
+            // Get the vertices of the triangle
+            Vector3 vertexA = transform.TransformPoint(Terrain.Vertices[Terrain.Triangles[i]]);
+            Vector3 vertexB = transform.TransformPoint(Terrain.Vertices[Terrain.Triangles[i + 1]]);
+            Vector3 vertexC = transform.TransformPoint(Terrain.Vertices[Terrain.Triangles[i + 2]]);
 
-            Matrix4x4 matrix = Matrix4x4.TRS(
-                new Vector3(worldX, y, worldZ), // Position
-                Quaternion.Euler(0, Random.Range(0, 360), 0), // Random rotation
-                Vector3.one * Random.Range(0.8f, 1.2f) // Random size variation
-            );
+            // Calculate the normal of the triangle
+            Vector3 triangleNormal = Vector3.Cross(vertexB - vertexA, vertexC - vertexA).normalized;
+            Vector3 triangleCenter = (vertexA + vertexB + vertexC) / 3f;
 
-            grassInstances.Add(matrix);
+            // **Convert world position to terrain grid coordinates**
+            int tx = Mathf.RoundToInt(triangleCenter.x / World.CellSize);
+            int tz = Mathf.RoundToInt(triangleCenter.z / World.CellSize);
+
+            // **Find biome at this triangle's location**
+            float temperature = Mathf.PerlinNoise(tx * World.TemperatureNoiseScale, tz * World.TemperatureNoiseScale);
+            float humidity = Mathf.PerlinNoise(tx * World.HumidityNoiseScale, tz * World.HumidityNoiseScale);
+            float baseHeight = Mathf.PerlinNoise(tx * Biome.localNoiseScale, tz * Biome.localNoiseScale);
+
+            // Randomly place grass within the triangle
+            for (int j = 0; j < 12; j++)
+            {
+                // Offset the position slightly to avoid overlapping
+                Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f; // Lift slightly above surfacen = 
+                Matrix4x4 matrix = Matrix4x4.TRS(position,Quaternion.Euler(0, Random.Range(0, 360), 0),Vector3.one * Random.Range(1f, 2f));
+                grassInstances.Add(matrix);
+            }
         }
     }
 
@@ -235,10 +257,6 @@ public class Chunk : MonoBehaviour
         int neighborGridX = X;
         int neighborGridZ = Z;
 
-        int maxDistance = 5;
-        float xDistance = 0;
-        float zDistance = 0;
-
         // **X Movement (Up/Down in Grid)**
         // If we're near the top edge, move up in the grid (decreasing GridX)
         if (localX < 0)
@@ -259,7 +277,7 @@ public class Chunk : MonoBehaviour
 
         // Don't return our chunk.
         if (neighborGridX == X && neighborGridZ == Z)
-            return (null,0f); // throw new System.ArgumentException("Failed to locate neighbor chunk.");
+            return (null, 0f); // throw new System.ArgumentException("Failed to locate neighbor chunk.");
 
         return (World.GetChunk(neighborGridX, neighborGridZ), 3f);
     }

@@ -121,34 +121,21 @@ public class GameWorld : MonoBehaviour
     /// <param name="worldX"></param>
     /// <param name="worldZ"></param>
     /// <returns></returns>
-    public float GetVertexHeight(Chunk chunk, int localX, int localZ)
+    public float GetVertexHeight(Chunk chunk, float localX, float localZ)
     {
-        Biome biome = chunk.Biome;
-
         Vector3 worldPos = GridToWorldPosition(chunk.X, chunk.Z, localX, localZ);
-        float worldX = worldPos.x;
-        float worldZ = worldPos.z;
 
-        // Generate Large-Scale Macro Terrain (Mountains, Oceans)**
-        float macroNoise = Mathf.PerlinNoise((worldX + Seed) * biome.macroNoiseScale, (worldZ + Seed) * biome.macroNoiseScale);
-        macroNoise = macroNoise * 2f - 1f; // Normalize from [0,1] to [-1,1] for better contrast
-        float macroHeight = macroNoise * biome.macroInfluence * (biome.maxHeight - biome.minHeight);
+        float x = (worldPos.x + Seed) * chunk.Biome.localNoiseScale;
+        float z = (worldPos.z + Seed) * chunk.Biome.localNoiseScale;
 
-        // Generate Mid-Scale Hills & Regional Variation**
-        float midNoise = Mathf.PerlinNoise((worldX + Seed) * biome.midNoiseScale, (worldZ + Seed) * biome.midNoiseScale);
-        midNoise = midNoise * 2f - 1f; // Normalize [-1,1]
-        float midHeight = midNoise * biome.midInfluence * (biome.maxHeight - biome.minHeight);
+        // Generate multi-layered Perlin noise using WORLD coordinates
+        float noise = Mathf.PerlinNoise(x, z);
+        noise += Mathf.PerlinNoise(x * 0.5f, z * 0.5f) * 0.5f;
+        noise += Mathf.PerlinNoise(x * 0.25f, z * 0.25f);
+        noise /= 1.2f; // Normalize
 
-        // Generate Local-Scale Detail Noise (Hills, Small Bumps)**
-        float localNoise = Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale, (worldZ + Seed) * biome.localNoiseScale);
-        localNoise += Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale * 0.5f, (worldZ + Seed) * biome.localNoiseScale * 0.5f) * 0.5f;
-        localNoise += Mathf.PerlinNoise((worldX + Seed) * biome.localNoiseScale * 0.25f, (worldZ + Seed) * biome.localNoiseScale * 0.25f) * 0.25f;
-        localNoise /= 1.75f; // Normalize
-
-        // Blend Macro, Mid, and Local Noise for Final Height**
-        float finalHeight = biome.minHeight + (macroHeight * 0.5f) + (midHeight * 0.35f) + (localNoise * biome.localInfluence);
-
-        return Mathf.Clamp(finalHeight, biome.minHeight, biome.maxHeight);
+        // Scale height based on biome range
+        return chunk.Biome.minHeight + (noise * (chunk.Biome.maxHeight - chunk.Biome.minHeight));
     }
 
     /// <summary>
@@ -172,7 +159,7 @@ public class GameWorld : MonoBehaviour
     /// <param name="localX"></param>
     /// <param name="localZ"></param>
     /// <returns></returns>
-    public Vector3 GridToWorldPosition(int gridX, int gridZ, int localX, int localZ)
+    public Vector3 GridToWorldPosition(int gridX, int gridZ, float localX, float localZ)
     {
         float worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
         float worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
@@ -233,6 +220,10 @@ public class GameWorld : MonoBehaviour
             chunk.GenerateTerrain();
         }
 
+        foreach (var chunk in Chunks.Values)
+        {
+            chunk.GenerateGrass();
+        }
     }
 
     /// <summary>
