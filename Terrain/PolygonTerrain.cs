@@ -82,6 +82,7 @@ public class PolygonTerrain : MonoBehaviour
 
     private void CalculateVertices()
     {
+        // Store previous row heights for better smoothing
         float[,] heightMap = new float[Width + 1, Height + 1];
 
         // First Pass: Generate initial heights
@@ -101,43 +102,29 @@ public class PolygonTerrain : MonoBehaviour
             {
                 float currentY = heightMap[x, z];
 
-                // Sum of heights and neighbor count for averaging
-                float sumHeight = currentY;
+                // Apply smoothing with neighbors
+                float avgHeight = currentY;
                 int count = 1;
 
-                // Define the 3x3 neighborhood offsets
-                int[,] offsets = {
-                    { -1, -1 }, {  0, -1 }, {  1, -1 },
-                    { -1,  0 }, {  0,  0 }, {  1,  0 },
-                    { -1,  1 }, {  0,  1 }, {  1,  1 }};
-
-                float maxDifference = 0f; // Store the max height difference in the neighborhood
-                for (int i = 0; i < offsets.GetLength(0); i++)
+                if (x > 0)  // Left neighbor
                 {
-                    int nx = x + offsets[i, 0];
-                    int nz = z + offsets[i, 1];
-
-                    // Ensure neighbor is within bounds
-                    if (nx >= 0 && nx <= Width && nz >= 0 && nz <= Height)
-                    {
-                        float neighborHeight = heightMap[nx, nz];
-
-                        // Track max difference for adaptive smoothing
-                        float heightDiff = Mathf.Abs(currentY - neighborHeight);
-                        maxDifference = Mathf.Max(maxDifference, heightDiff);
-
-                        sumHeight += neighborHeight;
-                        count++;
-                    }
+                    avgHeight += heightMap[x - 1, z];
+                    count++;
+                }
+                if (z > 0)  // Top neighbor
+                {
+                    avgHeight += heightMap[x, z - 1];
+                    count++;
+                }
+                if (x > 0 && z > 0)  // Top-left diagonal neighbor
+                {
+                    avgHeight += heightMap[x - 1, z - 1];
+                    count++;
                 }
 
-                // Adaptive smoothing factor based on terrain roughness
-                float smoothingFactor = Mathf.Clamp01(maxDifference / 5f); // Adjust divisor to control smoothing strength
+                //currentY = avgHeight / 8f; // Take average height
 
-                // Blend original height with smoothed height
-                currentY = Mathf.Lerp(currentY, sumHeight / count, smoothingFactor);
-
-                // Assign the smoothed height
+                // Assign smoothed height
                 Vertices[sIndex] = new Vector3(x * World.CellSize, currentY, z * World.CellSize);
 
                 // Apply edge heat visualization
@@ -155,7 +142,6 @@ public class PolygonTerrain : MonoBehaviour
             }
         }
     }
-
 
 
     private void AssignUV()

@@ -101,6 +101,12 @@ public class GameWorld : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// Retrieve the base noise height based on a position in the world.
+    /// </summary>
+    /// <param name="worldX"></param>
+    /// <param name="worldZ"></param>
+    /// <returns></returns>
     public float GetBaseHeight(float worldX, float worldZ)
     {
         // Ensure unique world coordinates for heightmap
@@ -128,9 +134,22 @@ public class GameWorld : MonoBehaviour
     /// <param name="worldX"></param>
     /// <param name="worldZ"></param>
     /// <returns></returns>
-    public float GetVertexHeight(Chunk chunk, float localX, float localZ)
+    public float GetVertextHeight(Chunk chunk, float localX, float localZ)
     {
-        Vector3 worldPos = GridToWorldPosition(chunk.X, chunk.Z, localX, localZ);
+        return GetVertextHeight(chunk.X, chunk.Z, localX, localZ);
+    }
+
+    /// <summary>
+    /// Get the height of a vertex based on its point in the world.
+    /// </summary>
+    /// <param name="gridX"></param>
+    /// <param name="gridZ"></param>
+    /// <param name="localX"></param>
+    /// <param name="localZ"></param>
+    /// <returns></returns>
+    public float GetVertextHeight(int gridX, int gridZ, float localX, float localZ)
+    {
+        Vector3 worldPos = GridToWorldPosition(gridX, gridZ, localX, localZ);
         Biome closestBiome = GetBiome(worldPos.x, worldPos.z);
 
         // Generate multi-layered Perlin noise using WORLD coordinates
@@ -226,7 +245,7 @@ public class GameWorld : MonoBehaviour
 
         foreach (var chunk in Chunks.Values)
         {
-            //chunk.GenerateGrass();
+            //chunk.GenerateGrass(this);
         }
     }
 
@@ -278,6 +297,9 @@ public class GameWorld : MonoBehaviour
         float baseHeight = GetBaseHeight(worldX, worldZ);
         float temp = GetTemperatureForVertice(worldX, worldZ);
         float humid = GetHumidityForVertice(worldX, worldZ);
+
+        if (baseHeight < 0)
+            return Biomes[1];
 
         Biome bestBiome = null;
         float bestScore = float.MaxValue; // Lower score is better
