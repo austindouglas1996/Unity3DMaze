@@ -28,6 +28,7 @@ public class Chunk : MonoBehaviour
     /// </summary>
     private void Update()
     {
+        return;
         if (Vector3.Distance(Camera.main.transform.position, transform.position) < 260f)
         {
             Graphics.DrawMeshInstanced(grassMesh, 0, grassMaterial, grassInstances);
@@ -44,15 +45,15 @@ public class Chunk : MonoBehaviour
     public float GetHeightInChunk(int localX, int localZ)
     {
         Vector3 worldPos = World.GridToWorldPosition(X, Z, localX, localZ);
-        float currentHeight = World.GetVertextHeight(this, localX, localZ);
+        float currentHeight = World.GetVertexHeight(this, localX, localZ);
 
         var (neighborChunk, distanceFactor) = GetClosestNeighbor(localX, localZ);
         if (neighborChunk != null)
         {
             Vector3Int neighborPos = GetMappedLocalPosition(neighborChunk, localX, localZ);
-            float neighborHeight = World.GetVertextHeight(neighborChunk, neighborPos.x, neighborPos.z);
+            float neighborHeight = World.GetVertexHeight(neighborChunk, neighborPos.x, neighborPos.z);
 
-            return Mathf.Lerp(currentHeight, neighborHeight, distanceFactor * World.WorldEdgeBlend);
+            return Mathf.Lerp(currentHeight, neighborHeight, distanceFactor * 1f);
         }
 
         return currentHeight;

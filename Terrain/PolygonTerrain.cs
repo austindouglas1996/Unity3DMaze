@@ -47,7 +47,6 @@ public class PolygonTerrain : MonoBehaviour
                 localZ >= chunkSize - 1 - offset);
     }
 
-
     public void Generate(GameWorld gameWorld, Chunk chunk)
     {
         Chunk = chunk;
@@ -101,28 +100,6 @@ public class PolygonTerrain : MonoBehaviour
             for (int x = 0; x <= Width; x++)
             {
                 float currentY = heightMap[x, z];
-
-                // Apply smoothing with neighbors
-                float avgHeight = currentY;
-                int count = 1;
-
-                if (x > 0)  // Left neighbor
-                {
-                    avgHeight += heightMap[x - 1, z];
-                    count++;
-                }
-                if (z > 0)  // Top neighbor
-                {
-                    avgHeight += heightMap[x, z - 1];
-                    count++;
-                }
-                if (x > 0 && z > 0)  // Top-left diagonal neighbor
-                {
-                    avgHeight += heightMap[x - 1, z - 1];
-                    count++;
-                }
-
-                //currentY = avgHeight / 8f; // Take average height
 
                 // Assign smoothed height
                 Vertices[sIndex] = new Vector3(x * World.CellSize, currentY, z * World.CellSize);
