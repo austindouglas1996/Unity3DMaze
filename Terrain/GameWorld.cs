@@ -21,30 +21,6 @@ public class GameWorld : MonoBehaviour
     [Range(5, 90)] public int ChunkCellsHeight = 20;
     [Range(1, 12)] public int CellSize = 4;
 
-    [Header("Biome generation")]
-    [Range(-25f, 0f)] public float WorldMinBaseHeight = -25f;
-    [Range(0f, 50f)] public float WorldMaxBaseHeight = 50f;
-
-    /// <summary>
-    /// Global noise scale.
-    /// </summary>
-    [Range(0f, 1f)] public float GlobalNoiseScale = 0.3f;
-
-    /// <summary>
-    /// Temperature scale.
-    /// </summary>
-    [Range(0f, 1f)] public float TemperatureNoiseScale = 0.3f;
-
-    /// <summary>
-    /// Humity scale.
-    /// </summary>
-    [Range(0f, 1f)] public float HumidityNoiseScale = 0.3f;
-
-    /// <summary>
-    /// A list of biomes to use.
-    /// </summary>
-    public List<Biome> Biomes;
-
     [Header("Prefabs")]
     public Chunk ChunkPrefab;
     public List<GameObject> GrassPrefabs;
@@ -100,57 +76,6 @@ public class GameWorld : MonoBehaviour
     }
 
     /// <summary>
-    /// Get the height of a vertex based on its point in the world.
-    /// </summary>
-    /// <param name="biome"></param>
-    /// <param name="worldX"></param>
-    /// <param name="worldZ"></param>
-    /// <returns></returns>
-    public float GetVertexHeight(Chunk chunk, float localX, float localZ)
-    {
-        return GetVertexHeight(chunk.X, chunk.Z, localX, localZ);
-    }
-
-    /// <summary>
-    /// Get the height of a vertex based on its point in the world.
-    /// </summary>
-    /// <param name="gridX"></param>
-    /// <param name="gridZ"></param>
-    /// <param name="localX"></param>
-    /// <param name="localZ"></param>
-    /// <returns></returns>
-    public float GetVertexHeight(int gridX, int gridZ, float localX, float localZ)
-    {
-        Vector3 worldPos = GridToWorldPosition(gridX, gridZ, localX, localZ);
-        return GetVertexHeight(worldPos.x, worldPos.z);
-    }
-
-    /// <summary>
-    /// Get the height of a vertex based on its point in the world.
-    /// </summary>
-    /// <param name="worldX"></param>
-    /// <param name="worldZ"></param>
-    /// <returns></returns>
-    public float GetVertexHeight(float worldX, float worldZ)
-    {
-        float baseNoise = GetBaseHeightForVertice(worldX, worldZ);
-
-        // Macro noise should be [-0.5, 0.5], then rescaled to have a small effect
-        float macro = (Mathf.PerlinNoise(worldX * 0.55f, worldZ * 0.55f) - 0.5f) * 0.2f;
-
-        // Mid-level terrain bumps (small impact)
-        float mid = (Mathf.PerlinNoise(worldX * 0.1f, worldZ * 0.1f) - 0.5f) * 0.05f;
-
-        // Local small terrain details (very small impact)
-        float local = (Mathf.PerlinNoise(worldX * 0.25f, worldZ * 0.25f) - 0.5f) * 0.02f;
-
-        // Final height calculation
-        float terrainHeight = Mathf.Clamp01(baseNoise + macro + mid + local);
-
-        return terrainHeight;
-    }
-
-    /// <summary>
     /// Convert a set of grid positions to world positions.
     /// </summary>
     /// <param name="gridX"></param>
@@ -176,19 +101,6 @@ public class GameWorld : MonoBehaviour
         float worldX = (gridX * ChunkCellsWidth * CellSize) + (localX * CellSize);
         float worldZ = (gridZ * ChunkCellsHeight * CellSize) + (localZ * CellSize);
         return new Vector3(worldX, 0, worldZ);
-    }
-
-    /// <summary>
-    /// Convert a set of world positions to grid positions.
-    /// </summary>
-    /// <param name="worldX"></param>
-    /// <param name="worldZ"></param>
-    /// <returns></returns>
-    public Vector2Int WorldToGridPosition(float worldX, float worldZ)
-    {
-        int gridX = Mathf.FloorToInt(worldX / ChunkCellsWidth);
-        int gridZ = Mathf.FloorToInt(worldZ / ChunkCellsHeight);
-        return new Vector2Int(gridX, gridZ);
     }
 
     /// <summary>
@@ -230,89 +142,6 @@ public class GameWorld : MonoBehaviour
         {
             //chunk.GenerateGrass(this);
         }
-    }
-
-    /// <summary>
-    /// Returns the base height for a vertice.
-    /// </summary>
-    /// <param name="worldX"></param>
-    /// <param name="worldZ"></param>
-    /// <returns></returns>
-    private float GetBaseHeightForVertice(float worldX, float worldZ)
-    {
-        float height = 0f;
-
-        // Large-scale terrain features
-        height += Mathf.PerlinNoise((worldX + Seed) * GlobalNoiseScale, (worldZ + Seed) * GlobalNoiseScale) * 0.6f;
-
-        // Mid-scale variations (hills)
-        height += Mathf.PerlinNoise((worldX + Seed * 2) * (GlobalNoiseScale * 2f),
-                                    (worldZ + Seed * 2) * (GlobalNoiseScale * 2f)) * 0.3f;
-
-        // Small-scale terrain details
-        height += Mathf.PerlinNoise((worldX + Seed * 3) * (GlobalNoiseScale * 4f),
-                                    (worldZ + Seed * 3) * (GlobalNoiseScale * 4f)) * 0.1f;
-
-        return Mathf.Clamp01(height); // Ensure it's in [0,1]
-    }
-
-    /// <summary>
-    /// Grab the temperature for a chunk in the world.
-    /// </summary>
-    /// <param name="x">The X position in the grid.</param>
-    /// <param name="z">The Z position in the grid.</param>
-    /// <returns></returns>
-    private float GetTemperatureForVertice(float worldX, float worldZ)
-    {
-        // Apply Perlin Noise using world coordinates
-        return Mathf.PerlinNoise((worldX + Seed) * TemperatureNoiseScale, (worldZ + Seed) * TemperatureNoiseScale);
-    }
-
-    /// <summary>
-    /// Grab the humidity for a chunk in the world.
-    /// </summary>
-    /// <param name="x">The X position in the grid.</param>
-    /// <param name="z">The Z position in the grid.</param>
-    /// <returns></returns>
-    private float GetHumidityForVertice(float worldX, float worldZ)
-    {
-        // Apply Perlin Noise using world coordinates
-        return Mathf.PerlinNoise((worldX + Seed) * HumidityNoiseScale, (worldZ + Seed) * HumidityNoiseScale);
-    }
-
-    /// <summary>
-    /// Retrieve a biome based on its position and height.
-    /// </summary>
-    /// <param name="baseHeight"></param>
-    /// <param name="worldX"></param>
-    /// <param name="worldZ"></param>
-    /// <returns></returns>
-    public Biome GetBiome(float worldX, float worldZ)
-    {
-        float baseHeight = GetVertexHeight(worldX, worldZ);
-        float temp = GetTemperatureForVertice(worldX, worldZ);
-        float humid = GetHumidityForVertice(worldX, worldZ);
-
-        Biome bestBiome = null;
-        float bestScore = float.MaxValue; // Lower score is better
-
-        var biomes = Biomes.Where(r => r.minHeight <= baseHeight && r.maxHeight >= baseHeight).ToList();
-        foreach (var biome in biomes)
-        {
-            // Calculate how well this biome matches the given temperature and humidity
-            float heightScore = Mathf.Abs((biome.minHeight + biome.maxHeight) * 0.5f - baseHeight);
-            float tempScore = Mathf.Abs((biome.minTemp + biome.maxTemp) * 0.5f - temp);
-            float humidScore = Mathf.Abs((biome.minHumidity + biome.maxHumidity) * 0.5f - humid);
-            float totalScore = heightScore + tempScore + humidScore; // Lower is better
-
-            if (totalScore < bestScore)
-            {
-                bestScore = totalScore;
-                bestBiome = biome;
-            }
-        }
-
-        return bestBiome ?? Biomes.FirstOrDefault();
     }
 
     /// <summary>

@@ -21,39 +21,9 @@ public class PolygonTerrain : MonoBehaviour
     public int Width;
     public int Height;
 
-    private Chunk Chunk;
-    private GameWorld World;
-
-    /// <summary>
-    /// Retrieve the center point of this terrain.
-    /// </summary>
-    /// <returns></returns>
-    public Vector3Int GetCenter()
-    {
-        return new Vector3Int(Width /2 , 0, Height /2);
-    }
-
-    /// <summary>
-    /// Returns whether the position is within an edge range.
-    /// </summary>
-    /// <param name="localX"></param>
-    /// <param name="localZ"></param>
-    /// <returns></returns>
-    public bool IsEdge(int localX, int localZ, int chunkSize = 20, int offset = 0)
-    {
-        return (localX <= offset ||
-                localX >= chunkSize - 1 - offset ||
-                localZ <= offset ||
-                localZ >= chunkSize - 1 - offset);
-    }
-
     public void Generate(GameWorld gameWorld, Chunk chunk)
     {
-        Chunk = chunk;
-        World = gameWorld;
 
-        this.Width = World.ChunkCellsWidth;
-        this.Height = World.ChunkCellsHeight;
 
         GenerateTerrain();
     }
@@ -81,45 +51,25 @@ public class PolygonTerrain : MonoBehaviour
 
     private void CalculateVertices()
     {
-        // Store previous row heights for better smoothing
-        float[,] heightMap = new float[Width + 1, Height + 1];
+        /*
+        var noise = 1f;// Noise.GenerateNoiseMap(Width, Height, 0.3f);
 
-        // First Pass: Generate initial heights
-        for (int z = 0; z <= Height; z++)
-        {
-            for (int x = 0; x <= Width; x++)
-            {
-                heightMap[x, z] = Chunk.GetHeightInChunk(x, z);
-            }
-        }
-
-        // Second Pass: Apply smoothing
+        // Calculate vertices
         int sIndex = 0;
         for (int z = 0; z <= Height; z++)
         {
             for (int x = 0; x <= Width; x++)
             {
-                float currentY = heightMap[x, z];
+                Vertices[sIndex] = new Vector3(x * World.CellSize, 1f, z * World.CellSize);
 
-                // Assign smoothed height
-                Vertices[sIndex] = new Vector3(x * World.CellSize, currentY, z * World.CellSize);
-
-                // Apply edge heat visualization
-                if (IsEdge(x, z) && World.ShowEdgeHeat)
-                {
-                    Colors[sIndex] = Color.red;
-                }
-                else
-                {
-                    var worldPos = World.GridToWorldPosition(Chunk.X, Chunk.Z, x, z);
-                    Colors[sIndex] = World.GetBiome(worldPos.x, worldPos.z).terrainColor;
-                }
+                var worldPos = World.GridToWorldPosition(Chunk.X, Chunk.Z, x, z);
+                Colors[sIndex] = Color.Lerp(Color.black, Color.white, noise[x, z]);
 
                 sIndex++;
             }
         }
+        */
     }
-
 
     private void AssignUV()
     {
