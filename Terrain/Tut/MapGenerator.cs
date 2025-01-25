@@ -23,6 +23,7 @@ public class MapGenerator : MonoBehaviour
     public MapChunk ChunkPrefab;
 
     [Header("Noise Options")]
+    public Noise.NormalizeMode normalizeMode;
     [Range(1f, 250f)] public float NoiseScale;
     [Range(1f, 25f)]  public int octaves;
     [Range(0.1f, 1f)] public float persistance;
@@ -45,6 +46,8 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
+    public bool nodebug = false;
+
     public void GenerateMap()
     {
         while (Chunks.transform.childCount != 0)
@@ -59,7 +62,7 @@ public class MapGenerator : MonoBehaviour
         {
             for (int y = 0; y < MapChunks.y; y++)
             {
-                GenerateChunk(new Vector2(x,y));
+                GenerateChunk(new Vector2(x, y));
             }
         }
     }
@@ -71,7 +74,7 @@ public class MapGenerator : MonoBehaviour
         MapChunk newChunk = Instantiate(ChunkPrefab, new Vector3(worldPos.x, 0, worldPos.y), Quaternion.identity, this.Chunks.transform);
         newChunk.name = $"Chunk_{newChunk.transform.position.x}_{newChunk.transform.position.z}";
 
-        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize, MapChunkSize, Seed, NoiseScale, octaves, persistance, lacunarity, worldPos / NoiseScale);
+        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize, MapChunkSize, Seed, NoiseScale, octaves, persistance, lacunarity, worldPos, normalizeMode);
         Color[] colourMap = new Color[MapChunkSize * MapChunkSize];
 
         for (int y = 0; y < MapChunkSize; y++)
