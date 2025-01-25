@@ -14,8 +14,4 @@ public class MapChunk : MonoBehaviour
     }
 
     [Range(0, 6)] public int levelOfDetail;
-
-    private void Start()
-    {
-    }
 }

@@ -71,7 +71,7 @@ public class MapGenerator : MonoBehaviour
         MapChunk newChunk = Instantiate(ChunkPrefab, new Vector3(worldPos.x, 0, worldPos.y), Quaternion.identity, this.Chunks.transform);
         newChunk.name = $"Chunk_{newChunk.transform.position.x}_{newChunk.transform.position.z}";
 
-        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize, MapChunkSize, Seed, NoiseScale, octaves, persistance, lacunarity, worldPos);
+        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize, MapChunkSize, Seed, NoiseScale, octaves, persistance, lacunarity, worldPos / NoiseScale);
         Color[] colourMap = new Color[MapChunkSize * MapChunkSize];
 
         for (int y = 0; y < MapChunkSize; y++)
@@ -95,7 +95,9 @@ public class MapGenerator : MonoBehaviour
         Texture2D meshTexture = TextureGenerator.TextureFromColourMap(colourMap, MapChunkSize, MapChunkSize);
 
         newChunk.MeshFilter.sharedMesh = meshData.CreateMesh();
-        newChunk.MeshRenderer.sharedMaterial.mainTexture = meshTexture;
+        newChunk.MeshRenderer.material = new Material(Shader.Find("Unlit/Texture"));
+        newChunk.MeshRenderer.material.mainTexture = meshTexture;
+
 
         return newChunk;
     }
