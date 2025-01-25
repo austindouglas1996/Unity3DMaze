@@ -24,7 +24,7 @@ public class MapGenerator : MonoBehaviour
 
     [Header("Noise Options")]
     public Noise.NormalizeMode normalizeMode;
-    [Range(1f, 250f)] public float NoiseScale;
+    [Range(1f, 500f)] public float NoiseScale;
     [Range(1f, 25f)]  public int octaves;
     [Range(0.1f, 1f)] public float persistance;
     [Range(1f, 5f)]   public float lacunarity;
@@ -45,8 +45,6 @@ public class MapGenerator : MonoBehaviour
             Chunks.name = "Chunks";
         }
     }
-
-    public bool nodebug = false;
 
     public void GenerateMap()
     {
