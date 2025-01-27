@@ -1,0 +1,74 @@
+using System.Collections;
+using System.Threading;
+using Unity.VisualScripting;
+using UnityEditor.ShaderGraph.Internal;
+using UnityEngine;
+using VHierarchy.Libs;
+using static UnityEngine.Mesh;
+
+public class TerrainChunk : MonoBehaviour
+{
+    private Vector2 position;
+    private MapGenerator generator;
+    private TerrainThreadData terrainData;
+
+    public void Generate(MapGenerator generator, Vector2 coord, int size)
+    {
+        this.generator = generator;
+        this.position = coord * size;
+
+        this.name = $"TerrainChunk_{coord.x}_{coord.y}";
+        this.AddComponent<MeshRenderer>();
+        this.AddComponent<MeshFilter>();
+        this.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+
+        this.transform.position = new Vector3(this.position.x, 0, this.position.y) * 1f;
+        this.transform.localScale = Vector3.one;
+
+        StartCoroutine(this.UpdateTerrainAsync());
+    }
+
+    private IEnumerator UpdateTerrainAsync()
+    {
+        Thread newThread = new Thread(() =>
+        {
+            MapData mapData = this.generator.GenerateMapData(this.position);
+            MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapData.heightMap, this.generator.meshHeightMultiplier, this.generator.meshHeightCurve, 1);
+
+            // Store the results in a shared variable.
+            terrainData = new TerrainThreadData(mapData, meshData, mapData.colourMap);
+        });
+
+        newThread.Start();
+
+        // Wait for the thread to finish.
+        while (newThread.IsAlive)
+        {
+            yield return null; // Wait until the next frame.
+        }
+
+        if (terrainData != null)
+        {
+            this.GetComponent<MeshFilter>().sharedMesh = terrainData.MeshData.CreateMesh();
+            this.GetComponent<MeshRenderer>().material.mainTexture = TextureGenerator.TextureFromColourMap(terrainData.ColorMap, generator.MapChunkSize, generator.MapChunkSize);
+
+            // Update collider.
+            this.GetComponent<MeshCollider>().DestroyImmediate();
+            this.AddComponent<MeshCollider>();
+        }
+    }
+
+    internal class TerrainThreadData
+    {
+        public TerrainThreadData(MapData mapData, MeshData meshData, Color[] colorMap)
+        {
+            this.MapData = mapData;
+            this.MeshData = meshData;
+            this.ColorMap = colorMap;
+        }
+
+        public MapData MapData { get; set; }
+        public MeshData MeshData { get; set; }
+        public Color[] ColorMap{ get; set; }
+    }
+}

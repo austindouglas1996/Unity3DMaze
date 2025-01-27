@@ -5,6 +5,8 @@ using UnityEngine.Rendering;
 using System.Linq;
 using DistantLands.Cozy;
 using Unity.VisualScripting;
+using System.Collections.Generic;
+using VHierarchy.Libs;
 
 public enum DrawMode { NoiseMap, ColourMap, Mesh, FalloffMap };
 
@@ -17,12 +19,11 @@ public class MapGenerator : MonoBehaviour
 
     [Header("Map Options")]
     public Vector2 MapChunks = new Vector2(2, 2);
-    public int MapChunkSize = 250;
+    public int MapChunkSize = 439;
     public int Seed = 2543;
     public Vector2 GlobalOffset;
     public bool useFallOff;
-    public TerrainType[] Regions;
-    public MapChunk ChunkPrefab;
+    public TerrainChunk ChunkPrefab;
 
     [Header("Noise Options")]
     public Noise.NormalizeMode normalizeMode;
@@ -30,16 +31,11 @@ public class MapGenerator : MonoBehaviour
     [Range(1f, 25f)]  public int octaves;
     [Range(0.1f, 1f)] public float persistance;
     [Range(1f, 5f)]   public float lacunarity;
-    public float heightMultiplier = 16f;
+    public float meshHeightMultiplier = 16f;
     public AnimationCurve meshHeightCurve;
 
     private float[,] fallOffMap;
-    private GameObject Chunks;
-
-    private void Awake()
-    {
-        fallOffMap = FalloffGenerator.GenerateFalloffMap(MapChunkSize);
-    }
+    public TerrainType[] Regions;
 
     private void Start()
     {
@@ -48,41 +44,52 @@ public class MapGenerator : MonoBehaviour
     private void OnValidate()
     {
         fallOffMap = FalloffGenerator.GenerateFalloffMap(MapChunkSize);
+    }
 
-        if (Chunks == null)
+    public void DrawMapInEditor()
+    {
+        MapData mapData = GenerateMapData(Vector2.zero);
+
+        MapDisplay display = FindObjectOfType<MapDisplay>();
+        if (drawMode == DrawMode.NoiseMap)
         {
-            Chunks = Instantiate(new GameObject(), this.transform);
-            Chunks.name = "Chunks";
+            display.DrawTexture(TextureGenerator.TextureFromHeightMap(mapData.heightMap));
+        }
+        else if (drawMode == DrawMode.ColourMap)
+        {
+            display.DrawTexture(TextureGenerator.TextureFromColourMap(mapData.colourMap, MapChunkSize, MapChunkSize));
+        }
+        else if (drawMode == DrawMode.Mesh)
+        {
+            this.GenerateMap();
+        }
+        else if (drawMode == DrawMode.FalloffMap)
+        {
+            display.DrawTexture(TextureGenerator.TextureFromHeightMap(FalloffGenerator.GenerateFalloffMap(MapChunkSize)));
         }
     }
 
     public void GenerateMap()
     {
-        while (Chunks.transform.childCount != 0)
+        foreach (var chunk in this.GetComponentsInChildren<TerrainChunk>())
         {
-            foreach (Transform child in Chunks.transform)
-            {
-                DestroyImmediate(child.gameObject);
-            }
+            chunk.gameObject.DestroyImmediate();
         }
 
         for (int x = 0; x < MapChunks.x; x++)
         {
             for (int y = 0; y < MapChunks.y; y++)
             {
-                GenerateChunk(new Vector2(x, y));
+                GameObject newChunk = Instantiate(new GameObject(), this.transform);
+                TerrainChunk chunk = newChunk.AddComponent<TerrainChunk>();
+                chunk.Generate(this, new Vector2(x, y), this.MapChunkSize);
             }
         }
     }
 
-    public MapChunk GenerateChunk(Vector2 offset)
+    public MapData GenerateMapData(Vector2 center)
     {
-        Vector2 worldPos = new Vector2(offset.x * (MapChunkSize), offset.y * (MapChunkSize));
-
-        MapChunk newChunk = Instantiate(ChunkPrefab, new Vector3(worldPos.x, 0, worldPos.y), Quaternion.identity, this.Chunks.transform);
-        newChunk.name = $"Chunk_{newChunk.transform.position.x}_{newChunk.transform.position.z}";
-
-        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize + 6, MapChunkSize + 6, Seed, NoiseScale, octaves, persistance, lacunarity, worldPos, normalizeMode);
+        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize + 2, MapChunkSize + 2, Seed, NoiseScale, octaves, persistance, lacunarity, center, normalizeMode);
         Color[] colourMap = new Color[MapChunkSize * MapChunkSize];
 
         for (int y = 0; y < MapChunkSize; y++)
@@ -92,7 +99,7 @@ public class MapGenerator : MonoBehaviour
                 float currentHeight = noiseMap[x, y];
                 for (int i = 0; i < Regions.Length - 1; i++)
                 {
-                    if (currentHeight >= Regions[i + 1].Height)
+                    if (currentHeight >= Regions[i].Height)
                     {
                         float t = Mathf.InverseLerp(Regions[i].Height, Regions[i + 1].Height, currentHeight);
                         colourMap[y * MapChunkSize + x] = colorBlend ? Color.Lerp(Regions[i].Colour, Regions[i + 1].Colour, t) : Regions[i].Colour;
@@ -103,14 +110,6 @@ public class MapGenerator : MonoBehaviour
             }
         }
 
-        MeshData meshData = MeshGenerator.GenerateTerrainMesh(noiseMap, heightMultiplier, meshHeightCurve, 1);
-        Texture2D meshTexture = TextureGenerator.TextureFromColourMap(colourMap, MapChunkSize, MapChunkSize);
-
-        newChunk.MeshFilter.sharedMesh = meshData.CreateMesh();
-        newChunk.MeshRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        newChunk.MeshRenderer.material.mainTexture = meshTexture;
-
-
-        return newChunk;
+        return new MapData(noiseMap, colourMap);
     }
 }
