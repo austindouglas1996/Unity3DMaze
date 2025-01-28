@@ -3,62 +3,78 @@ using System.Collections;
 
 public static class MeshGenerator
 {
-    public static MeshData GenerateTerrainMesh(float[,] heightMap, float heightMultiplier, AnimationCurve _heightCurve, int levelOfDetail)
+    public static MeshData GenerateTerrainMesh(float[,] heightMap, float heightMultiplier, AnimationCurve heightCurve, int levelOfDetail)
     {
-        AnimationCurve heightCurve = new AnimationCurve(_heightCurve.keys);
+        int width = heightMap.GetLength(0);
+        int height = heightMap.GetLength(1);
+        float topLeftX = (width - 1) / -2f;
+        float topLeftZ = (height - 1) / 2f;
 
         int meshSimplificationIncrement = (levelOfDetail == 0) ? 1 : levelOfDetail * 2;
+        int verticesPerLine = (width - 1) / meshSimplificationIncrement + 1;
+        int verticesPerColumn = (height - 1) / meshSimplificationIncrement + 1;
 
-        int borderedSize = heightMap.GetLength(0);
-        int meshSize = borderedSize - 2 * meshSimplificationIncrement;
-        int meshSizeUnsimplified = borderedSize - 2;
+        MeshData meshData = new MeshData(verticesPerLine, verticesPerColumn);
+        int vertexIndex = 0;
 
-        float topLeftX = (meshSizeUnsimplified - 1) / -2f;
-        float topLeftZ = (meshSizeUnsimplified - 1) / 2f;
-
-        int verticesPerLine = (meshSize - 1) / meshSimplificationIncrement + 1;
-
-        MeshData meshData = new MeshData(verticesPerLine);
-
-        int[,] vertexIndicesMap = new int[borderedSize, borderedSize];
-        int meshVertexIndex = 0;
-
-        // Assign indices to all vertices (including border vertices)
-        for (int y = 0; y < borderedSize; y += meshSimplificationIncrement)
+        for (int y = 0; y < height; y += meshSimplificationIncrement)
         {
-            for (int x = 0; x < borderedSize; x += meshSimplificationIncrement)
+            for (int x = 0; x < width; x += meshSimplificationIncrement)
             {
-                vertexIndicesMap[x, y] = meshVertexIndex;
-                meshVertexIndex++;
-            }
-        }
+                meshData.vertices[vertexIndex] = new Vector3(topLeftX + x, heightCurve.Evaluate(heightMap[x, y]) * heightMultiplier, topLeftZ - y);
+                meshData.uvs[vertexIndex] = new Vector2((x / (float)width), (y / (float)height));
 
-        // Add vertices to the mesh
-        for (int y = 0; y < borderedSize; y += meshSimplificationIncrement)
-        {
-            for (int x = 0; x < borderedSize; x += meshSimplificationIncrement)
-            {
-                int vertexIndex = vertexIndicesMap[x, y];
-                Vector2 percent = new Vector2((x - meshSimplificationIncrement) / (float)meshSize, (y - meshSimplificationIncrement) / (float)meshSize);
-                float height = heightCurve.Evaluate(heightMap[x, y]) * heightMultiplier;
-                Vector3 vertexPosition = new Vector3(topLeftX + percent.x * meshSizeUnsimplified, height, topLeftZ - percent.y * meshSizeUnsimplified);
-
-                meshData.AddVertex(vertexPosition, percent, vertexIndex);
-
-                // Add triangles for all vertices (including border vertices)
-                if (x < borderedSize - 1 && y < borderedSize - 1)
+                if (x < width - meshSimplificationIncrement && y < height - meshSimplificationIncrement)
                 {
-                    int a = vertexIndicesMap[x, y];
-                    int b = vertexIndicesMap[x + meshSimplificationIncrement, y];
-                    int c = vertexIndicesMap[x, y + meshSimplificationIncrement];
-                    int d = vertexIndicesMap[x + meshSimplificationIncrement, y + meshSimplificationIncrement];
+                    meshData.AddTriangle(vertexIndex, vertexIndex + verticesPerLine + 1, vertexIndex + verticesPerLine);
+                    meshData.AddTriangle(vertexIndex + verticesPerLine + 1, vertexIndex, vertexIndex + 1);
 
-                    meshData.AddTriangle(a, d, c);
-                    meshData.AddTriangle(d, a, b);
                 }
+
+                vertexIndex++;
             }
         }
 
         return meshData;
+    }
+}
+
+public class MeshData
+{
+    public Vector3[] vertices;
+    public int[] triangles;
+    public Vector2[] uvs;
+
+    int triangleIndex;
+
+    public MeshData(int meshWidth, int meshHeight)
+    {
+        vertices = new Vector3[meshWidth * meshHeight];
+        uvs = new Vector2[meshWidth * meshHeight];
+
+        int numQuads = (meshWidth - 1) * (meshHeight - 1);
+        triangles = new int[numQuads * 6]; // Each quad = 6 indices
+
+    }
+
+    public void AddTriangle(int a, int b, int c)
+    {
+        if (triangleIndex < triangles.Length - 2)
+        {
+            triangles[triangleIndex] = a;
+            triangles[triangleIndex + 1] = b;
+            triangles[triangleIndex + 2] = c;
+            triangleIndex += 3;
+        }
+    }
+
+    public Mesh CreateMesh()
+    {
+        Mesh mesh = new Mesh();
+        mesh.vertices = vertices;
+        mesh.triangles = triangles;
+        mesh.uv = uvs;
+        mesh.RecalculateNormals();
+        return mesh;
     }
 }
