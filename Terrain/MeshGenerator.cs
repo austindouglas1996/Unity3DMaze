@@ -16,34 +16,24 @@ public static class MeshGenerator
         float topLeftX = (meshSizeUnsimplified - 1) / -2f;
         float topLeftZ = (meshSizeUnsimplified - 1) / 2f;
 
-
         int verticesPerLine = (meshSize - 1) / meshSimplificationIncrement + 1;
 
         MeshData meshData = new MeshData(verticesPerLine);
 
         int[,] vertexIndicesMap = new int[borderedSize, borderedSize];
         int meshVertexIndex = 0;
-        int borderVertexIndex = -1;
 
+        // Assign indices to all vertices (including border vertices)
         for (int y = 0; y < borderedSize; y += meshSimplificationIncrement)
         {
             for (int x = 0; x < borderedSize; x += meshSimplificationIncrement)
             {
-                bool isBorderVertex = y == 0 || y == borderedSize - 1 || x == 0 || x == borderedSize - 1;
-
-                if (isBorderVertex)
-                {
-                    vertexIndicesMap[x, y] = borderVertexIndex;
-                    borderVertexIndex--;
-                }
-                else
-                {
-                    vertexIndicesMap[x, y] = meshVertexIndex;
-                    meshVertexIndex++;
-                }
+                vertexIndicesMap[x, y] = meshVertexIndex;
+                meshVertexIndex++;
             }
         }
 
+        // Add vertices to the mesh
         for (int y = 0; y < borderedSize; y += meshSimplificationIncrement)
         {
             for (int x = 0; x < borderedSize; x += meshSimplificationIncrement)
@@ -55,21 +45,20 @@ public static class MeshGenerator
 
                 meshData.AddVertex(vertexPosition, percent, vertexIndex);
 
+                // Add triangles for all vertices (including border vertices)
                 if (x < borderedSize - 1 && y < borderedSize - 1)
                 {
                     int a = vertexIndicesMap[x, y];
                     int b = vertexIndicesMap[x + meshSimplificationIncrement, y];
                     int c = vertexIndicesMap[x, y + meshSimplificationIncrement];
                     int d = vertexIndicesMap[x + meshSimplificationIncrement, y + meshSimplificationIncrement];
+
                     meshData.AddTriangle(a, d, c);
                     meshData.AddTriangle(d, a, b);
                 }
-
-                vertexIndex++;
             }
         }
 
         return meshData;
-
     }
 }

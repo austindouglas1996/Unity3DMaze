@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Threading;
+using System.Threading.Tasks;
 using Unity.VisualScripting;
+using UnityEditor.Rendering;
 using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 using VHierarchy.Libs;
@@ -8,13 +10,17 @@ using static UnityEngine.Mesh;
 
 public class TerrainChunk : MonoBehaviour
 {
+    public bool doneGenerating = false;
+
+    private Vector2 coordinates;
     private Vector2 position;
     private MapGenerator generator;
     private TerrainThreadData terrainData;
 
-    public void Generate(MapGenerator generator, Vector2 coord, int size)
+    public async Task Generate(MapGenerator generator, Vector2 coord, int size)
     {
         this.generator = generator;
+        this.coordinates = coord;
         this.position = coord * size;
 
         this.name = $"TerrainChunk_{coord.x}_{coord.y}";
@@ -25,27 +31,19 @@ public class TerrainChunk : MonoBehaviour
         this.transform.position = new Vector3(this.position.x, 0, this.position.y) * 1f;
         this.transform.localScale = Vector3.one;
 
-        StartCoroutine(this.UpdateTerrainAsync());
+        await this.UpdateTerrainAsync();
     }
 
-    private IEnumerator UpdateTerrainAsync()
+    public async Task UpdateTerrainAsync()
     {
-        Thread newThread = new Thread(() =>
+        await Task.Run(() =>
         {
-            MapData mapData = this.generator.GenerateMapData(this.position);
+            MapData mapData = this.generator.GenerateMapData(this.coordinates, this.position);
             MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapData.heightMap, this.generator.meshHeightMultiplier, this.generator.meshHeightCurve, 1);
 
             // Store the results in a shared variable.
             terrainData = new TerrainThreadData(mapData, meshData, mapData.colourMap);
         });
-
-        newThread.Start();
-
-        // Wait for the thread to finish.
-        while (newThread.IsAlive)
-        {
-            yield return null; // Wait until the next frame.
-        }
 
         if (terrainData != null)
         {
@@ -55,7 +53,19 @@ public class TerrainChunk : MonoBehaviour
             // Update collider.
             this.GetComponent<MeshCollider>().DestroyImmediate();
             this.AddComponent<MeshCollider>();
+
+            this.doneGenerating = true;
         }
+    }
+
+    public void SetVisible(bool visible)
+    {
+        this.gameObject.SetActive(visible);
+    }
+
+    public bool IsVisible()
+    {
+        return this.gameObject.activeSelf;
     }
 
     internal class TerrainThreadData

@@ -5,9 +5,37 @@ public static class Noise
 {
     public enum NormalizeMode { Local, Global };
 
+    public static void CalculateGlobalMinMax(int worldWidth, int worldHeight, int seed, float scale, int octaves, float persistance, float lacunarity, out float globalMinNoiseHeight, out float globalMaxNoiseHeight)
+    {
+        globalMinNoiseHeight = float.MaxValue;
+        globalMaxNoiseHeight = float.MinValue;
+
+        float[,] tempNoiseMap = GenerateNoiseMap(worldWidth, worldHeight, seed, scale, octaves, persistance, lacunarity, Vector2.zero, NormalizeMode.Local);
+
+        for (int y = 0; y < worldHeight; y++)
+        {
+            for (int x = 0; x < worldWidth; x++)
+            {
+                if (tempNoiseMap[x, y] < globalMinNoiseHeight)
+                {
+                    globalMinNoiseHeight = tempNoiseMap[x, y];
+                }
+                if (tempNoiseMap[x, y] > globalMaxNoiseHeight)
+                {
+                    globalMaxNoiseHeight = tempNoiseMap[x, y];
+                }
+            }
+        }
+    }
+
     public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, float persistance, float lacunarity, Vector2 offset, NormalizeMode normalizeMode)
     {
-        float[,] noiseMap = new float[mapWidth, mapHeight];
+        // Define the border size
+        int borderSize = 2;
+        int borderedMapWidth = mapWidth + borderSize * 2;
+        int borderedMapHeight = mapHeight + borderSize * 2;
+
+        float[,] noiseMap = new float[borderedMapWidth, borderedMapHeight];
 
         System.Random prng = new System.Random(seed);
         Vector2[] octaveOffsets = new Vector2[octaves];
@@ -34,15 +62,13 @@ public static class Noise
         float maxLocalNoiseHeight = float.MinValue;
         float minLocalNoiseHeight = float.MaxValue;
 
-        float halfWidth = mapWidth / 2f;
-        float halfHeight = mapHeight / 2f;
+        float halfWidth = borderedMapWidth / 2f;
+        float halfHeight = borderedMapHeight / 2f;
 
-
-        for (int y = 0; y < mapHeight; y++)
+        for (int y = 0; y < borderedMapHeight; y++)
         {
-            for (int x = 0; x < mapWidth; x++)
+            for (int x = 0; x < borderedMapWidth; x++)
             {
-
                 amplitude = 1;
                 frequency = 1;
                 float noiseHeight = 0;
@@ -67,13 +93,15 @@ public static class Noise
                 {
                     minLocalNoiseHeight = noiseHeight;
                 }
+
                 noiseMap[x, y] = noiseHeight;
             }
         }
 
-        for (int y = 0; y < mapHeight; y++)
+        // Normalize the noise map
+        for (int y = 0; y < borderedMapHeight; y++)
         {
-            for (int x = 0; x < mapWidth; x++)
+            for (int x = 0; x < borderedMapWidth; x++)
             {
                 if (normalizeMode == NormalizeMode.Local)
                 {
@@ -87,6 +115,16 @@ public static class Noise
             }
         }
 
-        return noiseMap;
+        // Extract the central part of the noise map that corresponds to the actual chunk
+        float[,] finalNoiseMap = new float[mapWidth, mapHeight];
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                finalNoiseMap[x, y] = noiseMap[x + borderSize, y + borderSize];
+            }
+        }
+
+        return finalNoiseMap;
     }
 }

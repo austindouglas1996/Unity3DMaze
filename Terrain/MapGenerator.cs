@@ -46,52 +46,21 @@ public class MapGenerator : MonoBehaviour
         fallOffMap = FalloffGenerator.GenerateFalloffMap(MapChunkSize);
     }
 
-    public void DrawMapInEditor()
+    public TerrainChunk GenerateChunkInstance()
     {
-        MapData mapData = GenerateMapData(Vector2.zero);
+        GameObject newChunk = Instantiate(new GameObject(), this.transform);
+        TerrainChunk chunk = newChunk.AddComponent<TerrainChunk>();
 
-        MapDisplay display = FindObjectOfType<MapDisplay>();
-        if (drawMode == DrawMode.NoiseMap)
-        {
-            display.DrawTexture(TextureGenerator.TextureFromHeightMap(mapData.heightMap));
-        }
-        else if (drawMode == DrawMode.ColourMap)
-        {
-            display.DrawTexture(TextureGenerator.TextureFromColourMap(mapData.colourMap, MapChunkSize, MapChunkSize));
-        }
-        else if (drawMode == DrawMode.Mesh)
-        {
-            this.GenerateMap();
-        }
-        else if (drawMode == DrawMode.FalloffMap)
-        {
-            display.DrawTexture(TextureGenerator.TextureFromHeightMap(FalloffGenerator.GenerateFalloffMap(MapChunkSize)));
-        }
+        return chunk;
     }
 
-    public void GenerateMap()
+    public MapData GenerateMapData(Vector2 coordinates, Vector2 center)
     {
-        foreach (var chunk in this.GetComponentsInChildren<TerrainChunk>())
-        {
-            chunk.gameObject.DestroyImmediate();
-        }
+        int size = MapChunkSize;
 
-        for (int x = 0; x < MapChunks.x; x++)
-        {
-            for (int y = 0; y < MapChunks.y; y++)
-            {
-                GameObject newChunk = Instantiate(new GameObject(), this.transform);
-                TerrainChunk chunk = newChunk.AddComponent<TerrainChunk>();
-                chunk.Generate(this, new Vector2(x, y), this.MapChunkSize);
-            }
-        }
-    }
+        float[,] noiseMap = Noise.GenerateNoiseMap(size + 2, size + 2, Seed, NoiseScale, octaves, persistance, lacunarity, center, normalizeMode);
 
-    public MapData GenerateMapData(Vector2 center)
-    {
-        float[,] noiseMap = Noise.GenerateNoiseMap(MapChunkSize + 2, MapChunkSize + 2, Seed, NoiseScale, octaves, persistance, lacunarity, center, normalizeMode);
-        Color[] colourMap = new Color[MapChunkSize * MapChunkSize];
-
+        Color[] colourMap = new Color[size * size];
         for (int y = 0; y < MapChunkSize; y++)
         {
             for (int x = 0; x < MapChunkSize; x++)
