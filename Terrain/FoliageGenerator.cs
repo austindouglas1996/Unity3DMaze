@@ -73,53 +73,6 @@ public class FoliageGenerator : MonoBehaviour
         }
     }
 
-    private void InitializeLODInstances()
-    {
-        grassInstancesLOD = new List<List<Matrix4x4>>[grassLODMeshes.Length];
-        batchBounds = new List<Bounds>[grassLODMeshes.Length];
-
-        for (int i = 0; i < grassInstancesLOD.Length; i++)
-        {
-            grassInstancesLOD[i] = new List<List<Matrix4x4>>();
-            grassInstancesLOD[i].Add(new List<Matrix4x4>()); // Initialize first batch
-
-            batchBounds[i] = new List<Bounds>();
-            batchBounds[i].Add(new Bounds()); // Initialize bounds for the first batch
-        }
-    }
-
-    private void UpdateLODs()
-    {
-        Vector3 cameraPos = Camera.main.transform.position;
-
-        for (int i = 0; i < grassInstancesLOD.Length; i++)
-        {
-            var batches = grassInstancesLOD[i];
-            var boundsList = batchBounds[i]; // Bounds for current LOD level
-
-            for (int j = 0; j < batches.Count; j++)
-            {
-                if (batches[j].Count == 0) continue; // Skip empty batches
-
-                Bounds batchBound = boundsList[j]; // Get batch bounds
-                float distanceToCamera = Vector3.Distance(batchBound.center, cameraPos);
-                int newLodIndex = GetLODIndex(distanceToCamera);
-
-                if (newLodIndex != i) // LOD needs to change
-                {
-                    // Move entire batch to new LOD level
-                    grassInstancesLOD[newLodIndex].Add(batches[j]);
-                    batchBounds[newLodIndex].Add(batchBound);
-
-                    // Remove from the old LOD level
-                    batches.RemoveAt(j);
-                    boundsList.RemoveAt(j);
-                    j--; // Adjust index after removal
-                }
-            }
-        }
-    }
-
     private void ProcessGrassPositions(MeshData meshData)
     {
         for (int i = 0; i < meshData.triangles.Length; i += 3)
@@ -167,37 +120,6 @@ public class FoliageGenerator : MonoBehaviour
                 batchBounds[lodIndex][batchList.Count - 1] = bounds;
             }
         }
-    }
-
-    private void RenderGrassInstances()
-    {
-        if (Camera.main == null) return;
-
-        Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-
-        for (int i = 0; i < grassInstancesLOD.Length; i++)
-        {
-            var batches = grassInstancesLOD[i];
-            var boundsList = batchBounds[i];
-
-            for (int j = 0; j < batches.Count; j++)
-            {
-                if (batches[j].Count == 0) continue;
-
-                // Test the batch's bounding box against the camera's frustum
-                if (GeometryUtility.TestPlanesAABB(frustumPlanes, boundsList[j]))
-                {
-                    Graphics.DrawMeshInstanced(grassLODMeshes[i], 0, grassMaterial, batches[j]);
-                }
-            }
-        }
-    }
-
-    private int GetLODIndex(float distance)
-    {
-        if (distance < 20f) return 0;
-        if (distance < 50f) return 1;
-        return 2;
     }
 
     private Vector3 RandomPointInTriangle(Vector3 a, Vector3 b, Vector3 c)
