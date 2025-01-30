@@ -4,7 +4,9 @@ using static TerrainChunk;
 
 public class FoliageGenerator : MonoBehaviour
 {
-    private List<MeshBatchDrawer> batches = new List<MeshBatchDrawer>();
+    private List<MeshBatchDrawer> grassBatches = new List<MeshBatchDrawer>();
+    private List<MeshBatchDrawer> flowerBatches = new List<MeshBatchDrawer>();
+    private List<MeshBatchDrawer> rockBatches = new List<MeshBatchDrawer>();
 
     public float maxGrassHeight = 2.3f;
     public float grassDensity = 10f;
@@ -15,28 +17,36 @@ public class FoliageGenerator : MonoBehaviour
 
     private void OnValidate()
     {
-        foreach (var batch in batches)
+        foreach (var batch in grassBatches)
             batch.UpdateFollowerPosition();
     }
 
     private void Update()
     {
-        foreach (var batch in batches)
+        foreach (var batch in grassBatches)
+            batch.Update();
+
+        foreach (var batch in flowerBatches)
+            batch.Update();
+
+        foreach (var batch in rockBatches)
             batch.Update();
     }
 
     public void ApplyMap(MapGenerator generator, TerrainThreadData chunkData)
     {
-        batches.Clear();
+        grassBatches.Clear();
+        flowerBatches.Clear();
+        rockBatches.Clear();
 
         foreach (var grass in generator.ResourceStore.GrassPrefabs)
-            batches.Add(new MeshBatchDrawer(grass, Camera.main));
+            grassBatches.Add(new MeshBatchDrawer(grass, Camera.main));
 
         foreach (var grass in generator.ResourceStore.FlowersPrefabs)
-            batches.Add(new MeshBatchDrawer(grass, Camera.main));
+            flowerBatches.Add(new MeshBatchDrawer(grass, Camera.main));
 
         foreach (var grass in generator.ResourceStore.RocksPrefabs)
-            batches.Add(new MeshBatchDrawer(grass, Camera.main));
+            rockBatches.Add(new MeshBatchDrawer(grass, Camera.main));
 
         ProcessGrassPositions(chunkData.MeshData);
     }
@@ -60,13 +70,37 @@ public class FoliageGenerator : MonoBehaviour
             Vector3 triangleNormal = Vector3.Cross(vertexB - vertexA, vertexC - vertexA).normalized;
             Vector3 triangleCenter = (vertexA + vertexB + vertexC) / 3f;
 
+            bool spawnedFlowerOrRock = false;
+
             for (int j = 0; j < 4; j++)
             {
                 Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f;
                 Quaternion rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
-                Vector3 scale = Vector3.one * Random.Range(0.2f, 4f);
 
-                batches.Random().Add(position, rotation, scale);
+                Vector3 scale = Vector3.one * Random.Range(0.2f, 4f);
+                grassBatches.Random().Add(position, rotation, scale);
+
+                float flowerChance = 0.25f;
+                float rockChance = 0.001f;
+
+                // If we haven't already spawned a flower or rock in this loop
+                if (!spawnedFlowerOrRock)
+                {
+                    float roll = Random.value; // Random range between 0 and 1
+
+                    if (roll < rockChance)
+                    {
+                        Vector3 rockScale = Vector3.one * Random.Range(0.2f, 25f);
+                        rockBatches.Random().Add(position, rotation, rockScale);
+                        spawnedFlowerOrRock = true; // Ensure no more flowers or rocks in this 4-loop
+                    }
+                    if (roll < flowerChance + rockChance) // Flower spawn, only if rock didn't spawn
+                    {
+                        Vector3 flowerScale = Vector3.one * Random.Range(0.2f, 4f);
+                        flowerBatches.Random().Add(position, rotation, flowerScale);
+                        spawnedFlowerOrRock = true;
+                    }
+                }
             }
         }
     }

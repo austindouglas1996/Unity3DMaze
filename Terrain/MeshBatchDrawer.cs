@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,6 +17,9 @@ public class MeshBatchDrawer
 
     private List<Bounds>[] BatchBounds;
     private Vector3 LastFollowerPosition;
+    private Quaternion LastFollowerRotation;
+
+    private List<Tuple<Mesh, Material, List<Matrix4x4>>> _DrawList = new List<Tuple<Mesh, Material, List<Matrix4x4>>>();
 
     /// <summary>
     /// Initialize a new instance of the <see cref="MeshBatchDrawer"/>.
@@ -104,6 +108,13 @@ public class MeshBatchDrawer
             this.UpdateLODs();
         }
 
+        float deltaAngle = Quaternion.Angle(LastFollowerRotation, Follower.transform.rotation);
+        if (deltaAngle >= 65f)
+        {
+            this.UpdateDrawList();
+            this.LastFollowerRotation = Follower.transform.rotation;
+        }
+
         this.RenderInstances();
     }
 
@@ -169,11 +180,14 @@ public class MeshBatchDrawer
     }
 
     /// <summary>
-    /// Render the instances of each active batch using <see cref="Graphics.DrawMeshInstanced(Mesh, int, Material, List{Matrix4x4})"/>. This method is a bit more
-    /// efficent than native Unity rendering as we will automatically use a FrustumPlane to determine what should be rendered.
+    /// Update the list of entries to draw each frame. This list should only be updated when the follower moves some distance, or rotates by an angle.
     /// </summary>
-    private void RenderInstances()
+    private void UpdateDrawList()
     {
+        // I spent so long on this one line
+        // I made this function and forgot to clear the list first ;-;
+        this._DrawList.Clear();
+
         if (Camera.main == null) return;
 
         Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
@@ -190,9 +204,21 @@ public class MeshBatchDrawer
                 // Test the batch's bounding box against the camera's frustum
                 if (GeometryUtility.TestPlanesAABB(frustumPlanes, boundsList[j]))
                 {
-                    Graphics.DrawMeshInstanced(MeshLODs[i].Mesh, 0, MaterialOverride ?? MeshLODs[i].Mat, batches[j]);
+                    _DrawList.Add(new Tuple<Mesh, Material, List<Matrix4x4>>(MeshLODs[i].Mesh, MaterialOverride ?? MeshLODs[i].Mat, batches[j]));
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Render the instances of each active batch using <see cref="Graphics.DrawMeshInstanced(Mesh, int, Material, List{Matrix4x4})"/>. This method is a bit more
+    /// efficent than native Unity rendering as we will automatically use a FrustumPlane to determine what should be rendered.
+    /// </summary>
+    private void RenderInstances()
+    {
+        foreach (var entry in _DrawList)
+        {
+            Graphics.DrawMeshInstanced(entry.Item1, 0, entry.Item2, entry.Item3);
         }
     }
 
@@ -206,7 +232,7 @@ public class MeshBatchDrawer
         int lodCount = MeshLODs.Count;
         if (lodCount == 1) return 0; // No LODs available
 
-        float step = 100f / lodCount;
+        float step = 20f / lodCount;
         for (int i = 0; i < lodCount; i++)
         {
             if (distance < step * (i + 1)) 
