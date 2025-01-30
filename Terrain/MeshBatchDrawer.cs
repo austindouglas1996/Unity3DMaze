@@ -37,7 +37,7 @@ public class MeshBatchDrawer
     public Camera Follower
     {
         get { return this._Follower; }
-        set { this._Follower = value; UpdateLODs(); }
+        set { this._Follower = value; }
     }
     private Camera _Follower;
 
@@ -105,6 +105,14 @@ public class MeshBatchDrawer
         }
 
         this.RenderInstances();
+    }
+
+    /// <summary>
+    /// Reset the distance from the last known follower position.
+    /// </summary>
+    public void UpdateFollowerPosition()
+    {
+        this.LastFollowerPosition = Follower.transform.position;
     }
 
     /// <summary>

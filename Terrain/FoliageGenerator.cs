@@ -4,73 +4,41 @@ using static TerrainChunk;
 
 public class FoliageGenerator : MonoBehaviour
 {
-    private const int MAX_BATCH_SIZE = 1023; // Unity's instance batch limit
+    private List<MeshBatchDrawer> batches = new List<MeshBatchDrawer>();
 
-    public GameObject grassPrefab;
     public float maxGrassHeight = 2.3f;
     public float grassDensity = 10f;
 
-    private Mesh[] grassLODMeshes;
-    private Material grassMaterial;
-    private List<List<Matrix4x4>>[] grassInstancesLOD;
-    private List<Bounds>[] batchBounds; // Store bounding boxes for each batch
-    private LODGroup grassLODGroup;
-    private Vector3 lastCameraPosition;
-
     private void Start()
     {
-        ExtractGrassPrefab();
-        InitializeLODInstances();
     }
 
     private void OnValidate()
     {
-        ExtractGrassPrefab();
-        InitializeLODInstances();
-
-        this.lastCameraPosition = Camera.main.transform.position;
+        foreach (var batch in batches)
+            batch.UpdateFollowerPosition();
     }
 
     private void Update()
     {
-        Vector3 cameraPos = Camera.main.transform.position;
-        if (Vector3.Distance(cameraPos, lastCameraPosition) > 25f)
-        {
-            UpdateLODs();
-            this.lastCameraPosition = cameraPos;
-        }    
-
-        RenderGrassInstances();
+        foreach (var batch in batches)
+            batch.Update();
     }
 
     public void ApplyMap(MapGenerator generator, TerrainThreadData chunkData)
     {
+        batches.Clear();
+
+        foreach (var grass in generator.ResourceStore.GrassPrefabs)
+            batches.Add(new MeshBatchDrawer(grass, Camera.main));
+
+        foreach (var grass in generator.ResourceStore.FlowersPrefabs)
+            batches.Add(new MeshBatchDrawer(grass, Camera.main));
+
+        foreach (var grass in generator.ResourceStore.RocksPrefabs)
+            batches.Add(new MeshBatchDrawer(grass, Camera.main));
+
         ProcessGrassPositions(chunkData.MeshData);
-    }
-
-    private void ExtractGrassPrefab()
-    {
-        grassLODGroup = grassPrefab.GetComponent<LODGroup>();
-        if (grassLODGroup == null) return;
-
-        LOD[] lods = grassLODGroup.GetLODs();
-        grassLODMeshes = new Mesh[lods.Length];
-
-        for (int i = 0; i < lods.Length; i++)
-        {
-            if (lods[i].renderers.Length > 0)
-            {
-                MeshFilter meshFilter = lods[i].renderers[0].GetComponent<MeshFilter>();
-                if (meshFilter != null)
-                    grassLODMeshes[i] = meshFilter.sharedMesh;
-
-                if (i == 0 && lods[i].renderers[0] != null)
-                {
-                    grassMaterial = lods[i].renderers[0].sharedMaterial;
-                    grassMaterial.enableInstancing = true;
-                }
-            }
-        }
     }
 
     private void ProcessGrassPositions(MeshData meshData)
@@ -98,26 +66,7 @@ public class FoliageGenerator : MonoBehaviour
                 Quaternion rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
                 Vector3 scale = Vector3.one * Random.Range(0.2f, 4f);
 
-                float distanceToCamera = Vector3.Distance(position, Camera.main.transform.position);
-                int lodIndex = GetLODIndex(distanceToCamera);
-
-                // Add to the appropriate LOD batch
-                var batchList = grassInstancesLOD[lodIndex];
-                var currentBatch = batchList[batchList.Count - 1];
-
-                if (currentBatch.Count >= MAX_BATCH_SIZE)
-                {
-                    batchList.Add(new List<Matrix4x4>()); // Start a new batch
-                    batchBounds[lodIndex].Add(new Bounds(position, Vector3.zero)); // Initialize bounds for the new batch
-                    currentBatch = batchList[batchList.Count - 1];
-                }
-
-                currentBatch.Add(Matrix4x4.TRS(position, rotation, scale));
-
-                // Update the batch's bounding box
-                Bounds bounds = batchBounds[lodIndex][batchList.Count - 1];
-                bounds.Encapsulate(position);
-                batchBounds[lodIndex][batchList.Count - 1] = bounds;
+                batches.Random().Add(position, rotation, scale);
             }
         }
     }

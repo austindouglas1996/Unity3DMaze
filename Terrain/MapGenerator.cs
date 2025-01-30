@@ -37,6 +37,11 @@ public class MapGenerator : MonoBehaviour
     private float[,] fallOffMap;
     public TerrainType[] Regions;
 
+    public TerrainStore ResourceStore
+    {
+        get { return this.GetComponent<TerrainStore>(); } 
+    }
+
     private void Start()
     {
     }
