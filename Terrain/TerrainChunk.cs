@@ -11,11 +11,21 @@ using static UnityEngine.Mesh;
 public class TerrainChunk : MonoBehaviour
 {
     public bool doneGenerating = false;
+    public bool Regenerate = false;
 
     private Vector2 coordinates;
     private Vector2 position;
     private MapGenerator generator;
     private TerrainThreadData terrainData;
+
+    private async void OnValidate()
+    {
+        if (Regenerate)
+        {
+            Regenerate = false;
+            await UpdateTerrainAsync();
+        }
+    }
 
     public async Task Generate(MapGenerator generator, Vector2 coord, int size)
     {
@@ -47,6 +57,11 @@ public class TerrainChunk : MonoBehaviour
 
         if (terrainData != null)
         {
+            if (this.GetComponent<FoliageGenerator>() != null)
+            {
+                this.GetComponent<FoliageGenerator>().ApplyMap(this.generator, terrainData);
+            }
+
             this.GetComponent<MeshFilter>().sharedMesh = terrainData.MeshData.CreateMesh();
             this.GetComponent<MeshRenderer>().material.mainTexture = TextureGenerator.TextureFromColourMap(terrainData.ColorMap, generator.MapChunkSize, generator.MapChunkSize);
 
@@ -68,7 +83,7 @@ public class TerrainChunk : MonoBehaviour
         return this.gameObject.activeSelf;
     }
 
-    internal class TerrainThreadData
+    public class TerrainThreadData
     {
         public TerrainThreadData(MapData mapData, MeshData meshData, Color[] colorMap)
         {
