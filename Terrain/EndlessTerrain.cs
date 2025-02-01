@@ -57,14 +57,23 @@ public class EndlessTerrain : MonoBehaviour
             for (int y = -(int)ChunksToLoad.y; y < ChunksToLoad.y; y++)
             {
                 Vector2 chunkPos = new Vector2(currentChunkPos.x + x, currentChunkPos.y + y);
+                int renderDetail = GetRenderDetail(currentChunkPos, chunkPos);
 
                 if (!terrainChunks.ContainsKey(chunkPos))
                 {
                     TerrainChunk newChunk = mapGenerator.GenerateChunkInstance();
-                    await newChunk.Generate(this.mapGenerator, chunkPos, mapGenerator.MapChunkSize);
+                    await newChunk.Generate(this.mapGenerator, chunkPos, mapGenerator.MapChunkSize, renderDetail);
 
                     if (!terrainChunks.ContainsKey(chunkPos))
                         terrainChunks.Add(chunkPos, newChunk);
+                }
+                else
+                {
+                    if (terrainChunks[chunkPos].renderDetail != renderDetail)
+                    {
+                        terrainChunks[chunkPos].SetRenderDetail(renderDetail);
+                        await terrainChunks[chunkPos].UpdateTerrainAsync();
+                    }
                 }
 
                 terrainChunks[chunkPos].SetVisible(true);
@@ -90,5 +99,24 @@ public class EndlessTerrain : MonoBehaviour
         return new Vector2(
             Mathf.Round(pos.x / mapGenerator.MapChunkSize),
             Mathf.Round(pos.z / mapGenerator.MapChunkSize));
+    }
+
+    private int GetRenderDetail(Vector2 followerChunk, Vector2 currentChunk)
+    {
+        float distanceX = Mathf.Abs(followerChunk.x - currentChunk.x);
+        float distanceY = Mathf.Abs(followerChunk.y - currentChunk.y);
+
+        if (distanceX <= 1 && distanceY <= 1)
+        {
+            return 1;
+        }
+        else if (distanceX <= 2 && distanceY <= 2)
+        {
+            return 3;
+        }
+        else
+        {
+            return 6;
+        }
     }
 }

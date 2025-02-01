@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 using static TerrainChunk;
 
 public class FoliageGenerator : MonoBehaviour
@@ -57,32 +58,14 @@ public class FoliageGenerator : MonoBehaviour
 
     private void ProcessGrassPositions(MeshData meshData)
     {
-        for (int i = 0; i < meshData.triangles.Length; i += 3)
+        foreach (var position in meshData.GetRandomPositionsInTriangles(this.transform, 1, true, "Default"))
         {
-            Vector3 localA = meshData.vertices[meshData.triangles[i]];
-            Vector3 localB = meshData.vertices[meshData.triangles[i + 1]];
-            Vector3 localC = meshData.vertices[meshData.triangles[i + 2]];
-
-            float averageHeight = (localA.y + localB.y + localC.y) / 3f;
-
-            Vector3 vertexA = transform.TransformPoint(localA);
-            Vector3 vertexB = transform.TransformPoint(localB);
-            Vector3 vertexC = transform.TransformPoint(localC);
-
-            Vector3 triangleNormal = Vector3.Cross(vertexB - vertexA, vertexC - vertexA).normalized;
-            Vector3 triangleCenter = (vertexA + vertexB + vertexC) / 3f;
-
             float roll = Random.value;
             float flowerChance = 0.25f;
             float rockChance = 0.002f;
 
-            Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f;
+            float averageHeight = position.y; 
             Quaternion rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
-
-            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f, LayerMask.GetMask("Default")))
-            {
-                position.y = hit.point.y; // Adjust to terrain height
-            }
 
             if (averageHeight < 160f || averageHeight > 200f)
             {
@@ -92,7 +75,8 @@ public class FoliageGenerator : MonoBehaviour
                     rockBatches.Random().Add(position, rotation, rockScale);
                 }
             }
-            else
+
+            if (averageHeight > 160f)
             {
                 Vector3 scale = Vector3.one * Random.Range(0.2f, 4f);
                 grassBatches.Random().Add(position, rotation, scale);
@@ -104,12 +88,5 @@ public class FoliageGenerator : MonoBehaviour
                 }
             }
         }
-    }
-
-    private Vector3 RandomPointInTriangle(Vector3 a, Vector3 b, Vector3 c)
-    {
-        float r1 = Mathf.Sqrt(Random.value);
-        float r2 = Random.value;
-        return (1 - r1) * a + (r1 * (1 - r2)) * b + (r1 * r2) * c;
     }
 }

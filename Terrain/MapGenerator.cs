@@ -73,7 +73,10 @@ public class MapGenerator : MonoBehaviour
                     if (currentHeight >= Regions[i].Height)
                     {
                         float t = Mathf.InverseLerp(Regions[i].Height, Regions[i + 1].Height, currentHeight);
-                        colourMap[y * MapChunkSize + x] = colorBlend ? Color.Lerp(Regions[i].Colour, Regions[i + 1].Colour, t) : Regions[i].Colour;
+
+                        System.Random rand = new System.Random();
+                        int colorIndex = rand.Next(0, Regions[i].Colour.Length);
+                        colourMap[y * MapChunkSize + x] = colorBlend ? Color.Lerp(Regions[i].Colour[colorIndex], Regions[i + 1].Colour[colorIndex], t) : Regions[i].Colour[colorIndex];
                     }
                     else
                         break;

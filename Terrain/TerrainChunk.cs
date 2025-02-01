@@ -12,17 +12,12 @@ public class TerrainChunk : MonoBehaviour
 {
     public bool doneGenerating = false;
     public bool Regenerate = false;
+    public int renderDetail = 6;
 
     private Vector2 coordinates;
     private Vector2 position;
     private MapGenerator generator;
     private TerrainThreadData terrainData;
-
-    private async void Start()
-    {
-        //if (this.GetComponent<FoliageGenerator>() == null)
-            //this.AddComponent<FoliageGenerator>();
-    }
 
     private async void OnValidate()
     {
@@ -33,7 +28,7 @@ public class TerrainChunk : MonoBehaviour
         }
     }
 
-    public async Task Generate(MapGenerator generator, Vector2 coord, int size)
+    public async Task Generate(MapGenerator generator, Vector2 coord, int size, int renderDetail)
     {
         this.generator = generator;
         this.coordinates = coord;
@@ -46,6 +41,7 @@ public class TerrainChunk : MonoBehaviour
         this.GetComponent<MeshRenderer>().material.SetFloat("_Smoothness", 0f);
         this.AddComponent<FoliageGenerator>();
 
+        this.renderDetail = renderDetail;
         this.transform.position = new Vector3(this.position.x, 0, this.position.y) * 1f;
         this.transform.localScale = Vector3.one;
 
@@ -57,7 +53,7 @@ public class TerrainChunk : MonoBehaviour
         await Task.Run(() =>
         {
             MapData mapData = this.generator.GenerateMapData(this.coordinates, this.position);
-            MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapData.heightMap, this.generator.meshHeightMultiplier, this.generator.meshHeightCurve, 1);
+            MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapData.heightMap, this.generator.meshHeightMultiplier, this.generator.meshHeightCurve, renderDetail);
 
             // Store the results in a shared variable.
             terrainData = new TerrainThreadData(mapData, meshData, mapData.colourMap);
@@ -65,9 +61,20 @@ public class TerrainChunk : MonoBehaviour
 
         if (terrainData != null)
         {
-            if (this.GetComponent<FoliageGenerator>() != null)
+            if (this.GetComponent<FoliageGenerator>() != null && renderDetail == 1)
             {
                 this.GetComponent<FoliageGenerator>().ApplyMap(this.generator, terrainData);
+            }
+
+            if (this.renderDetail > 3)
+            {
+                foreach (Transform child in this.transform)
+                    child.gameObject.SetActive(false);
+            }
+            else
+            {
+                foreach (Transform child in this.transform)
+                    child.gameObject.SetActive(true);
             }
 
             this.GetComponent<MeshFilter>().sharedMesh = terrainData.MeshData.CreateMesh();
@@ -79,6 +86,14 @@ public class TerrainChunk : MonoBehaviour
 
             this.doneGenerating = true;
         }
+    }
+
+    public void SetRenderDetail(int detail)
+    {
+        if (detail <= 0)
+            renderDetail = 1;
+        if (detail >= 6)
+            renderDetail = 6;
     }
 
     public void SetVisible(bool visible)

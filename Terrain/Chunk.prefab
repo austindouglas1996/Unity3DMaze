@@ -102,7 +102,7 @@ MonoBehaviour:
   meshNoise: 0
   sourceMesh: {fileID: 0}
   mesh: {fileID: 0}
-  tileSize: {x: 450, y: 450}
+  tileSize: {x: 250, y: 250}
   tileIndices:
   - x: 0
     z: 0
@@ -114,11 +114,11 @@ MonoBehaviour:
   splineResolutionX: 10
   splineResolutionY: 20
   splineWidth: 5
-  meshFilterComponent: {fileID: 2972501912847760318}
-  meshRendererComponent: {fileID: 3424949224248179820}
+  meshFilterComponent: {fileID: 0}
+  meshRendererComponent: {fileID: 0}
   bounds:
-    m_Center: {x: 225, y: 0, z: 225}
-    m_Extent: {x: 225, y: 0, z: 225}
+    m_Center: {x: 125, y: 0, z: 125}
+    m_Extent: {x: 125, y: 0, z: 125}
   shouldRenderBackFace: 0
   meshVersion: 189
   timeMode: 0
