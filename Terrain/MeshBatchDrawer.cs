@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -140,7 +141,7 @@ public class MeshBatchDrawer
             InstancesLOD[i].Add(new List<Matrix4x4>()); // Initialize first batch
 
             BatchBounds[i] = new List<Bounds>();
-            BatchBounds[i].Add(new Bounds(Vector3.zero, Vector3.one * 5f)); // Initialize bounds for the first batch
+            BatchBounds[i].Add(new Bounds(Vector3.zero, Vector3.one * 0.1f)); // Initialize bounds for the first batch
         }
     }
 
@@ -184,8 +185,6 @@ public class MeshBatchDrawer
     /// </summary>
     private void UpdateDrawList()
     {
-        // I spent so long on this one line
-        // I made this function and forgot to clear the list first ;-;
         this._DrawList.Clear();
 
         if (Camera.main == null) return;
@@ -200,6 +199,10 @@ public class MeshBatchDrawer
             for (int j = 0; j < batches.Count; j++)
             {
                 if (batches[j].Count == 0) continue;
+
+                // Calculate the distance between the batch's center and the follower's position
+                float distanceToFollower = Vector3.Distance(boundsList[j].center, Follower.transform.position);
+                if (distanceToFollower > 400f) continue;
 
                 // Test the batch's bounding box against the camera's frustum
                 if (GeometryUtility.TestPlanesAABB(frustumPlanes, boundsList[j]))

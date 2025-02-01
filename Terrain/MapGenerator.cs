@@ -53,10 +53,7 @@ public class MapGenerator : MonoBehaviour
 
     public TerrainChunk GenerateChunkInstance()
     {
-        GameObject newChunk = Instantiate(new GameObject(), this.transform);
-        TerrainChunk chunk = newChunk.AddComponent<TerrainChunk>();
-
-        return chunk;
+        return Instantiate(ChunkPrefab, Vector3.zero, Quaternion.identity, this.transform);
     }
 
     public MapData GenerateMapData(Vector2 coordinates, Vector2 center)

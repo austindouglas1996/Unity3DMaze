@@ -18,6 +18,12 @@ public class TerrainChunk : MonoBehaviour
     private MapGenerator generator;
     private TerrainThreadData terrainData;
 
+    private async void Start()
+    {
+        //if (this.GetComponent<FoliageGenerator>() == null)
+            //this.AddComponent<FoliageGenerator>();
+    }
+
     private async void OnValidate()
     {
         if (Regenerate)
@@ -37,6 +43,7 @@ public class TerrainChunk : MonoBehaviour
         this.AddComponent<MeshRenderer>();
         this.AddComponent<MeshFilter>();
         this.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        this.GetComponent<MeshRenderer>().material.SetFloat("_Smoothness", 0f);
 
         this.transform.position = new Vector3(this.position.x, 0, this.position.y) * 1f;
         this.transform.localScale = Vector3.one;

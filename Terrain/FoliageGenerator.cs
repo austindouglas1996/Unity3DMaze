@@ -11,6 +11,8 @@ public class FoliageGenerator : MonoBehaviour
     public float maxGrassHeight = 2.3f;
     public float grassDensity = 10f;
 
+    private MapGenerator _generator;
+
     private void Start()
     {
     }
@@ -35,6 +37,8 @@ public class FoliageGenerator : MonoBehaviour
 
     public void ApplyMap(MapGenerator generator, TerrainThreadData chunkData)
     {
+        this._generator = generator;
+
         grassBatches.Clear();
         flowerBatches.Clear();
         rockBatches.Clear();
@@ -60,8 +64,6 @@ public class FoliageGenerator : MonoBehaviour
             Vector3 localC = meshData.vertices[meshData.triangles[i + 2]];
 
             float averageHeight = (localA.y + localB.y + localC.y) / 3f;
-            if (averageHeight < 160f || averageHeight > 200f)
-                continue;
 
             Vector3 vertexA = transform.TransformPoint(localA);
             Vector3 vertexB = transform.TransformPoint(localB);
@@ -70,36 +72,35 @@ public class FoliageGenerator : MonoBehaviour
             Vector3 triangleNormal = Vector3.Cross(vertexB - vertexA, vertexC - vertexA).normalized;
             Vector3 triangleCenter = (vertexA + vertexB + vertexC) / 3f;
 
-            bool spawnedFlowerOrRock = false;
+            float roll = Random.value;
+            float flowerChance = 0.25f;
+            float rockChance = 0.002f;
 
-            for (int j = 0; j < 4; j++)
+            Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f;
+            Quaternion rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+
+            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 10f, LayerMask.GetMask("Default")))
             {
-                Vector3 position = RandomPointInTriangle(vertexA, vertexB, vertexC) + triangleNormal * 0.01f;
-                Quaternion rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+                position.y = hit.point.y; // Adjust to terrain height
+            }
 
+            if (averageHeight < 160f || averageHeight > 200f)
+            {
+                if (roll < rockChance)
+                {
+                    Vector3 rockScale = Vector3.one * Random.Range(0.2f, 25f);
+                    rockBatches.Random().Add(position, rotation, rockScale);
+                }
+            }
+            else
+            {
                 Vector3 scale = Vector3.one * Random.Range(0.2f, 4f);
                 grassBatches.Random().Add(position, rotation, scale);
 
-                float flowerChance = 0.25f;
-                float rockChance = 0.001f;
-
-                // If we haven't already spawned a flower or rock in this loop
-                if (!spawnedFlowerOrRock)
+                if (roll < flowerChance + rockChance) // Flower spawn, only if rock didn't spawn
                 {
-                    float roll = Random.value; // Random range between 0 and 1
-
-                    if (roll < rockChance)
-                    {
-                        Vector3 rockScale = Vector3.one * Random.Range(0.2f, 25f);
-                        rockBatches.Random().Add(position, rotation, rockScale);
-                        spawnedFlowerOrRock = true; // Ensure no more flowers or rocks in this 4-loop
-                    }
-                    if (roll < flowerChance + rockChance) // Flower spawn, only if rock didn't spawn
-                    {
-                        Vector3 flowerScale = Vector3.one * Random.Range(0.2f, 4f);
-                        flowerBatches.Random().Add(position, rotation, flowerScale);
-                        spawnedFlowerOrRock = true;
-                    }
+                    Vector3 flowerScale = Vector3.one * Random.Range(0.2f, 4f);
+                    flowerBatches.Random().Add(position, rotation, flowerScale);
                 }
             }
         }

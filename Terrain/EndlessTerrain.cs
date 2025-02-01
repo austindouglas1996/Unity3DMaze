@@ -31,10 +31,10 @@ public class EndlessTerrain : MonoBehaviour
         }
     }
 
-    private void Start()
+    private async void Start()
     {
         this.mapGenerator = GetComponent<MapGenerator>();
-        this.UpdateActiveChunks();
+        await this.UpdateActiveChunks();
     }
 
     private async void Update()
@@ -62,7 +62,9 @@ public class EndlessTerrain : MonoBehaviour
                 {
                     TerrainChunk newChunk = mapGenerator.GenerateChunkInstance();
                     await newChunk.Generate(this.mapGenerator, chunkPos, mapGenerator.MapChunkSize);
-                    terrainChunks.Add(chunkPos, newChunk);
+
+                    if (!terrainChunks.ContainsKey(chunkPos))
+                        terrainChunks.Add(chunkPos, newChunk);
                 }
 
                 terrainChunks[chunkPos].SetVisible(true);
