@@ -39,7 +39,7 @@ public class TerrainChunk : MonoBehaviour
         this.AddComponent<MeshFilter>();
         this.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         this.GetComponent<MeshRenderer>().material.SetFloat("_Smoothness", 0f);
-        this.AddComponent<FoliageGenerator>();
+        //this.AddComponent<FoliageGenerator>();
 
         this.renderDetail = renderDetail;
         this.transform.position = new Vector3(this.position.x, 0, this.position.y) * 1f;
