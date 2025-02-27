@@ -18,6 +18,11 @@ public class MeshBatchDrawer
 
     private class MeshBatchItem
     {
+        public MeshBatchItem(int meshIndex)
+        {
+            this.MeshIndex = meshIndex;
+        }
+
         public int MeshIndex;
         public List<Matrix4x4> Positions = new List<Matrix4x4>();
     }
@@ -62,7 +67,12 @@ public class MeshBatchDrawer
 
             if (!Entries.ContainsKey(meshIndex))
             {
-                Entries.Add(meshIndex, new MeshBatchItem());
+                Entries.Add(meshIndex, new MeshBatchItem(meshIndex));
+            }
+
+            if (currentIndex == 1)
+            {
+                Bounds = new Bounds(position, Vector3.one * 5f);
             }
 
             MeshBatchItem currentBatch = Entries[meshIndex];
@@ -265,6 +275,8 @@ public class MeshBatchDrawer
     /// <returns></returns>
     private int GetLODIndex(float distance)
     {
+        return 1;
+
         if (distance < 20)
             return 0;
         else if (distance < 30)

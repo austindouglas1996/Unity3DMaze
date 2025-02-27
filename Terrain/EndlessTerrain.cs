@@ -7,7 +7,7 @@ using UnityEngine;
 public class EndlessTerrain : MonoBehaviour
 {
     public Transform Viewer;
-    public float ViewerMoveThresholdForUpdate = 50f;
+    public float ViewerMoveThresholdForUpdate = 10f;
     public Vector2 ChunksToLoad = new Vector2(5, 5);
 
     private Vector3 lastKnownViewerPosition;
@@ -16,16 +16,15 @@ public class EndlessTerrain : MonoBehaviour
     private Dictionary<Vector2, TerrainChunk> terrainChunks = new Dictionary<Vector2, TerrainChunk>();
     private List<TerrainChunk> activeChunks = new List<TerrainChunk>();
 
+    private bool generating = false;
+
     public bool forceRegen = false;
 
     private async void OnValidate()
     {
         if (forceRegen)
         {
-            foreach (var chunk in activeChunks)
-            {
-                await chunk.UpdateTerrainAsync();
-            }
+            await UpdateActiveChunks();
 
             forceRegen = false;
         }
@@ -49,36 +48,48 @@ public class EndlessTerrain : MonoBehaviour
 
     private async Task UpdateActiveChunks()
     {
+        if (generating)
+            return;
+        generating = true;
+
         List<TerrainChunk> newChunksVisible = new List<TerrainChunk>();
         Vector2 currentChunkPos = GetClosestChunk(Viewer.position);
 
-        for (int x = -(int)ChunksToLoad.x; x < ChunksToLoad.x; x++)
+        List<Vector2> chunkPositions = new List<Vector2>();
+        for (int x = -((int)ChunksToLoad.x); x <= (int)ChunksToLoad.x; x++)
         {
-            for (int y = -(int)ChunksToLoad.y; y < ChunksToLoad.y; y++)
+            for (int y = -((int)ChunksToLoad.y); y <= (int)ChunksToLoad.y; y++)
             {
-                Vector2 chunkPos = new Vector2(currentChunkPos.x + x, currentChunkPos.y + y);
-                int renderDetail = GetRenderDetail(currentChunkPos, chunkPos);
+                chunkPositions.Add(new Vector2(currentChunkPos.x + x, currentChunkPos.y + y));
+            }
+        }
+
+        // Sort by distance to the player.
+        chunkPositions.Sort((a, b) =>
+            Vector2.Distance(a, currentChunkPos).CompareTo(Vector2.Distance(b, currentChunkPos))
+        );
+
+        foreach (var chunkPos in chunkPositions)
+        {
+            int renderDetail = GetRenderDetail(currentChunkPos, chunkPos);
+
+            if (!terrainChunks.ContainsKey(chunkPos))
+            {
+                TerrainChunk newChunk = mapGenerator.GenerateChunkInstance();
+                await newChunk.Generate(this.mapGenerator, chunkPos, mapGenerator.MapChunkSize, renderDetail);
 
                 if (!terrainChunks.ContainsKey(chunkPos))
-                {
-                    TerrainChunk newChunk = mapGenerator.GenerateChunkInstance();
-                    await newChunk.Generate(this.mapGenerator, chunkPos, mapGenerator.MapChunkSize, renderDetail);
-
-                    if (!terrainChunks.ContainsKey(chunkPos))
-                        terrainChunks.Add(chunkPos, newChunk);
-                }
-                else
-                {
-                    if (terrainChunks[chunkPos].renderDetail != renderDetail)
-                    {
-                        terrainChunks[chunkPos].SetRenderDetail(renderDetail);
-                        await terrainChunks[chunkPos].UpdateTerrainAsync();
-                    }
-                }
-
-                terrainChunks[chunkPos].SetVisible(true);
-                newChunksVisible.Add(terrainChunks[chunkPos]);
+                    terrainChunks.Add(chunkPos, newChunk);
             }
+
+            if (terrainChunks[chunkPos].renderDetail != renderDetail)
+            {
+                terrainChunks[chunkPos].SetRenderDetail(renderDetail);
+                await terrainChunks[chunkPos].UpdateTerrainAsync();
+            }
+
+            terrainChunks[chunkPos].SetVisible(true);
+            newChunksVisible.Add(terrainChunks[chunkPos]);
         }
 
         foreach (TerrainChunk chunk in activeChunks.Except(newChunksVisible))
@@ -87,6 +98,7 @@ public class EndlessTerrain : MonoBehaviour
         }
 
         activeChunks = newChunksVisible;
+        generating = false;
     }
 
     /// <summary>
@@ -103,20 +115,23 @@ public class EndlessTerrain : MonoBehaviour
 
     private int GetRenderDetail(Vector2 followerChunk, Vector2 currentChunk)
     {
-        float distanceX = Mathf.Abs(followerChunk.x - currentChunk.x);
-        float distanceY = Mathf.Abs(followerChunk.y - currentChunk.y);
+        float distance = Mathf.Max(Mathf.Abs(followerChunk.x - currentChunk.x), Mathf.Abs(followerChunk.y - currentChunk.y));
 
-        if (distanceX <= 1 && distanceY <= 1)
+        if (distance == 0)  // Player's current chunk
         {
             return 1;
         }
-        else if (distanceX <= 2 && distanceY <= 2)
+        else if (distance == 1)  // First radius layer
         {
-            return 3;
+            return 2;
+        }
+        else if (distance == 2)  // Second radius layer
+        {
+            return 6;
         }
         else
         {
-            return 6;
+            return 12;
         }
     }
 }

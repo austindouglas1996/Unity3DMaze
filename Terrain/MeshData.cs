@@ -50,9 +50,9 @@ public class MeshData
     /// <param name="alignY">Align points vertically using raycasting.</param>
     /// <param name="layerName">Physics layer for alignment checks.</param>
     /// <returns>List of random positions.</returns>
-    public List<Vector3> GetRandomPositionsInTriangles(Transform transform, int multiply = 1, bool alignY = true, string layerName = "Default")
+    public List<TrianglePOS> GetRandomPositionsInTriangles(Transform transform, int multiply = 1, bool alignY = true, string layerName = "Default")
     {
-        List<Vector3> positions = new List<Vector3>();
+        List<TrianglePOS> positions = new List<TrianglePOS>();
 
         if (multiply <= 0)
             multiply = 1;
@@ -85,7 +85,7 @@ public class MeshData
                 if (localPositions.Any(p => Vector3.Distance(p, position) < 0.01f))
                     continue;
 
-                positions.Add(position);
+                positions.Add(new TrianglePOS() { Position = position, Normal = triangleNormal});
                 localPositions.Add(position);
             }
         }
@@ -98,5 +98,11 @@ public class MeshData
         float r1 = Mathf.Sqrt(Random.value);
         float r2 = Random.value;
         return (1 - r1) * a + (r1 * (1 - r2)) * b + (r1 * r2) * c;
+    }
+
+    public struct TrianglePOS
+    {
+        public Vector3 Position;
+        public Vector3 Normal;
     }
 }

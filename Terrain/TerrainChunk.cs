@@ -39,7 +39,7 @@ public class TerrainChunk : MonoBehaviour
         this.AddComponent<MeshFilter>();
         this.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         this.GetComponent<MeshRenderer>().material.SetFloat("_Smoothness", 0f);
-        //this.AddComponent<FoliageGenerator>();
+        this.AddComponent<FoliageGenerator>();
 
         this.renderDetail = renderDetail;
         this.transform.position = new Vector3(this.position.x, 0, this.position.y) * 1f;
@@ -61,12 +61,12 @@ public class TerrainChunk : MonoBehaviour
 
         if (terrainData != null)
         {
-            if (this.GetComponent<FoliageGenerator>() != null && renderDetail == 1)
+            if (this.GetComponent<FoliageGenerator>() != null && renderDetail < 3)
             {
                 this.GetComponent<FoliageGenerator>().ApplyMap(this.generator, terrainData);
             }
 
-            if (this.renderDetail > 3)
+            if (this.renderDetail > 12)
             {
                 foreach (Transform child in this.transform)
                     child.gameObject.SetActive(false);
@@ -90,10 +90,7 @@ public class TerrainChunk : MonoBehaviour
 
     public void SetRenderDetail(int detail)
     {
-        if (detail <= 0)
-            renderDetail = 1;
-        if (detail >= 6)
-            renderDetail = 6;
+        renderDetail = detail;
     }
 
     public void SetVisible(bool visible)
