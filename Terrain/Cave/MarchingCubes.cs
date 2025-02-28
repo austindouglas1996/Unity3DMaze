@@ -8,11 +8,11 @@ public static class MarchingCubes
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
 
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < width -1; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < height-1; y++)
             {
-                for (int z = 0; z < depth; z++)
+                for (int z = 0; z < depth-1; z++)
                 {
                     float[] cubeCorners = new float[8];
                     Vector3[] cubePositions = new Vector3[8];
@@ -59,6 +59,8 @@ public static class MarchingCubes
                     }
                 }
             }
+
+            Debug.Log($"Marching Cubes processing: Width={width}, Height={height}, Depth={depth}");
         }
 
         Mesh mesh = new Mesh();
