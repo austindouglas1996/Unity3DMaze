@@ -9,23 +9,27 @@ using static UnityEngine.GraphicsBuffer;
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class CaveGenerator : MonoBehaviour
 {
+    [Header("Chunk")]
     public int width = 32;
     public int height = 32;
     public int depth = 32;
+
+    [Header("Noise")]
     public float threshold = 0.5f;
     public float frequency = 0.05f;
     public int octaves = 12;
-    public Material caveMaterial;
-
     public float verticalScale = 0.1f;
     public float horizontalScale = 0.1f;
     public float depthScale = 0.1f;
-
-    public CaveChunk ChunkPrefab;
-    public int ChunkDimension = 2;
     public Vector2 Offset = new Vector2(0, 0);
 
+    [Header("Rendering")]
+    public Material caveMaterial;
+    public CaveChunk ChunkPrefab;
+    public int ChunkDimension = 2;
+
     private MeshFilter meshFilter;
+
     void Start()
     {
         this.Generate();
@@ -51,22 +55,25 @@ public class CaveGenerator : MonoBehaviour
                     CaveChunk ch = Instantiate(ChunkPrefab,new Vector3(x * width, y * height, z * depth),Quaternion.identity,this.transform);
                     ch.ChunkPos = new Vector3Int(x, y, z);
 
-                    // Generate density data
-                    float[,,] density = GenerateDensityMap(ch.ChunkPos);
+                    float[,,] densityMap = GenerateDensityMap(ch.ChunkPos);
 
                     ch.GetComponent<MeshFilter>().mesh =
-                        MarchingCubes.GenerateMesh(density, width, height, depth, threshold, new Vector3(0, 0, 0));
+                        MarchingCubes.GenerateMesh(densityMap, width, height, depth, threshold, new Vector3(0,0,0));
                     ch.GetComponent<MeshRenderer>().material = caveMaterial;
                 }
             }
         }
     }
 
-    private float[,,] GenerateDensityMap(Vector3Int chunkPos)
+    private float[,,] GenerateDensityMap(Vector3 chunkPos)
     {
         // We create an array of size [width+1, height+1, depth+1]
         // the extra is needed for fixing the seam on chunks.
-        float[,,] densityMap = new float[width + 1, height + 1, depth + 1];
+        int globalWidth = (width * ChunkDimension) + 1;
+        int globalHeight = (height * ChunkDimension) + 1;
+        int globalDepth = (depth * ChunkDimension) + 1;
+
+        float[,,] densityMap = new float[globalWidth, globalHeight, globalDepth];
 
         for (int x = 0; x < width + 1; x++)
         {
@@ -79,11 +86,37 @@ public class CaveGenerator : MonoBehaviour
             }
         }
 
-        CarveTunnels(densityMap, GenerateNodes(2), 6f);
-        CarveTunnels(densityMap, GenerateNodes(4), 4f);
-        CarveTunnels(densityMap, GenerateNodes(4), 2f);
+        CarveDetails(densityMap);
 
         return densityMap;
+    }
+
+    private float[,,] GetDensityMapForChunk(float[,,] densityMap, Vector3Int chunkPos)
+    {
+        int startX = (width * chunkPos.x);
+        int startY = (height * chunkPos.y);
+        int startZ = (depth * chunkPos.z);
+
+        float[,,] localDensityMap = new float[width + 1, height + 1, depth + 1];
+        for (int x = 0; x < width + 1; x++)
+        {
+            for (int y = 0; y < height + 1; y++)
+            {
+                for (int z = 0; z < depth + 1; z++)
+                {
+                    localDensityMap[x, y, z] = densityMap[x + startX, y + startY, z + startZ];
+                }
+            }
+        }
+
+        return localDensityMap;
+    }
+
+    private void CarveDetails(float[,,] densityMap)
+    {
+        CarveTunnels(densityMap, GenerateNodes(2 * ChunkDimension), 6f);
+        CarveTunnels(densityMap, GenerateNodes(4 * ChunkDimension), 4f);
+        CarveTunnels(densityMap, GenerateNodes(4 * ChunkDimension), 2f);
     }
 
     private void CarveTunnels(float[,,] densityMap, List<Vector3> nodes, float tunnelRadius)
@@ -142,7 +175,6 @@ public class CaveGenerator : MonoBehaviour
             primaryNodes.Add(node);
         }
 
-        // **Step 2: Generate Path Nodes (Curved/Segmented Paths)**
         List<Vector3> finalNodes = new List<Vector3>();
         for (int i = 0; i < primaryNodes.Count - 1; i++)
         {
@@ -166,7 +198,7 @@ public class CaveGenerator : MonoBehaviour
             }
         }
 
-        // Add final primary node (last one)
+        // Add final primary node.
         finalNodes.Add(primaryNodes[primaryNodes.Count - 1]);
 
         return finalNodes;
