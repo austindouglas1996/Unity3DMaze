@@ -3,14 +3,7 @@ using UnityEngine;
 
 public static class MarchingCubes
 {
-    public static Mesh GenerateMesh(
-        float[,,] densityMap,
-        int width,
-        int height,
-        int depth,
-        float threshold,
-        Vector3 chunkOffset
-    )
+    public static Mesh GenerateMesh(float[,,] densityMap,int width,int height,int depth,float threshold,Vector3 chunkOffset)
     {
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
@@ -33,10 +26,7 @@ public static class MarchingCubes
                         int cy = y + (int)offset.y;
                         int cz = z + (int)offset.z;
 
-                        // Sample from densityMap. We assume it's sized (width+1, height+1, depth+1).
                         cornerVals[i] = densityMap[cx, cy, cz];
-
-                        // The "local" position, plus the chunkOffset to position it in world space:
                         cornerPos[i] = new Vector3(cx, cy, cz) + chunkOffset;
                     }
 
@@ -82,7 +72,6 @@ public static class MarchingCubes
                             cornerVals[MarchingCubesTables.EdgeConnections[edgeIndex2, 1]]
                         );
 
-                        // Add to lists
                         int baseIndex = vertices.Count;
                         vertices.Add(v1);
                         vertices.Add(v2);
@@ -108,15 +97,14 @@ public static class MarchingCubes
     }
 
 
-    private static Vector3 InterpolateEdge(float threshold,
-                                           Vector3 p1, Vector3 p2,
-                                           float valP1, float valP2)
+    private static Vector3 InterpolateEdge(float threshold,Vector3 p1, Vector3 p2,float valP1, float valP2)
     {
         // Avoid dividing by zero
         if (Mathf.Approximately(valP1, valP2))
         {
             return p1;
         }
+
         float t = (threshold - valP1) / (valP2 - valP1);
         return Vector3.Lerp(p1, p2, t);
     }
