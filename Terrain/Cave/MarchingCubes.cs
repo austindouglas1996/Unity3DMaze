@@ -85,6 +85,16 @@ public static class MarchingCubes
             }
         }
 
+        if (vertices.Count == 0)
+        {
+            Debug.Log("Mesh has 0 vertices.");
+        }
+
+        if (vertices.Count > 65535)
+        {
+            Debug.Log("Mesh size is too large. 65,000 is max");
+        }
+
         // Build final mesh
         Mesh mesh = new Mesh();
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // In case large chunk

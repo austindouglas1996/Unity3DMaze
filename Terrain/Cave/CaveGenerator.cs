@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using Unity.VisualScripting;
 using UnityEditor;
@@ -16,6 +16,7 @@ public class CaveGenerator : MonoBehaviour
     public int depth = 32;
 
     [Header("Noise")]
+    public int Seed = 42;
     public float threshold = 0.5f;
     public float frequency = 0.05f;
     public int octaves = 12;
@@ -31,6 +32,7 @@ public class CaveGenerator : MonoBehaviour
 
     private System.Random rand;
     private MeshFilter meshFilter;
+    private List<GameObject> Trash = new List<GameObject>();
 
     void Start()
     {
@@ -46,6 +48,11 @@ public class CaveGenerator : MonoBehaviour
             {
                 Destroy(child.gameObject);
             }
+        }
+
+        foreach (var item in this.Trash)
+        {
+            Destroy(item);
         }
 
         for (int x = 0; x < ChunkDimension; x++)
@@ -72,64 +79,193 @@ public class CaveGenerator : MonoBehaviour
     {
         float[,,] densityMap = new float[width + 1, height + 1, depth +1];
 
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < width + 1; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < height + 1; y++)
             {
-                for (int z = 0; z < depth; z++)
+                for (int z = 0; z < depth + 1; z++)
                 {
                     densityMap[x, y, z] = 1;
                 }
             }
         }
 
-        CarveDetails(densityMap, chunkPos);
+        DrawNodes(densityMap, chunkPos);
 
         return densityMap;
     }
 
-    private void CarveDetails(float[,,] densityMap, Vector3Int chunkPos)
+    private float[,,] GetNoiseMap(float[,,] densityMap, Vector3Int chunkPos)
     {
-        System.Random rand = new System.Random(42 ^ chunkPos.GetHashCode());
+        float minNoise = float.MaxValue;
+        float maxNoise = float.MinValue;
+        float[,,] noiseMap = new float[width + 1, height + 1, depth + 1];
 
-        CarveTunnels(densityMap, rand, GenerateNodes(rand,2 * ChunkDimension), chunkPos, 6f);
-        CarveTunnels(densityMap, rand, GenerateNodes(rand,4 * ChunkDimension), chunkPos, 4f);
-        CarveTunnels(densityMap, rand, GenerateNodes(rand,4 * ChunkDimension), chunkPos, 2f);
+        for (int x = 0; x < width + 1; x++)
+        {
+            for (int y = 0; y < height + 1; y++)
+            {
+                for (int z = 0; z < depth + 1; z++)
+                {
+                    // Convert local chunk coordinates to world coordinates
+                    int worldX = chunkPos.x * width + x;
+                    int worldY = chunkPos.y * height + y;
+                    int worldZ = chunkPos.z * depth + z;
+
+                    // Sample 3D Perlin noise at the world coordinates
+                    float noiseValue = Perlin.Fbm(worldX * 0.1f, worldY * 0.1f, worldZ * 0.1f, 4);
+
+                    // Track min and max noise values
+                    if (noiseValue < minNoise) minNoise = noiseValue;
+                    if (noiseValue > maxNoise) maxNoise = noiseValue;
+
+                    // If the noise value is above the threshold, add the point to the list
+                    Vector3Int pos = new Vector3Int(x, y, z);
+                    noiseMap[x, y, z] = noiseValue;
+                }
+            }
+        }
+
+        for (int x = 0; x < width + 1; x++)
+        {
+            for (int y = 0; y < height + 1; y++)
+            {
+                for (int z = 0; z < depth + 1; z++)
+                {
+                    noiseMap[x, y, z] = (noiseMap[x, y, z] - minNoise) / (maxNoise - minNoise);
+                }
+            }
+        }
+
+        return noiseMap;
     }
 
-    private void CarveTunnels(float[,,] densityMap, System.Random rand, List<Vector3> nodes, Vector3Int chunkPos, float tunnelRadius)
+    private List<Vector3Int> GetNodesAboveThreshold(float threshold, Vector3Int chunkPos)
     {
-        foreach (Vector3 node in nodes)
+        List<Vector3Int> pointsAboveThreshold = new List<Vector3Int>();
+
+        // Add forced border nodes for seamless chunk connections
+        List<Vector3Int> borderNodes = new List<Vector3Int>();
+
+        // -X and +X faces
+        //borderNodes.Add(new Vector3Int(0, height / 2, depth / 2));         // -X edge
+        borderNodes.Add(new Vector3Int(width - 1, height / 2, depth / 2)); // +X edge
+
+        // -Y and +Y faces
+        //borderNodes.Add(new Vector3Int(width / 2, 0, depth / 2));         // -Y edge
+        //borderNodes.Add(new Vector3Int(width / 2, height - 1, depth / 2)); // +Y edge
+
+        // -Z and +Z faces
+        borderNodes.Add(new Vector3Int(width / 2, height / 2, 0));         // -Z edge
+        borderNodes.Add(new Vector3Int(width / 2, height / 2, depth - 1)); // +Z edge
+
+        // Merge border nodes into main list (avoiding duplicates)
+        foreach (Vector3Int node in borderNodes)
         {
-            Vector3 worldNode = node + (chunkPos * width); // Convert local node to world space
+            if (!pointsAboveThreshold.Contains(node))
+                pointsAboveThreshold.Add(node);
+        }
 
-            for (float t = 0; t < 1; t += 0.1f) // Step along tunnel
+        return pointsAboveThreshold;
+    }
+
+    private void DrawNodes(float[,,] densityMap, Vector3Int chunkPos)
+    {
+        var roots = GetNodesAboveThreshold(0.90f, chunkPos);
+
+        var rootHeart = roots.Random();
+        Vector3Int rootHeartPos = new Vector3Int(
+            rootHeart.x + chunkPos.x * width,
+            rootHeart.y + chunkPos.y * height,
+            rootHeart.z + chunkPos.z * depth);
+
+        foreach (var rootItem in roots)
+        {
+            bool isHeart = rootItem == rootHeart;
+
+            Vector3Int worldPos = new Vector3Int(
+                rootItem.x + chunkPos.x * width,
+                rootItem.y + chunkPos.y * height,
+                rootItem.z + chunkPos.z * depth
+            );
+
+            DrawCube(worldPos, Vector3.one * 1f, isHeart ? Color.black : Color.red, "Root");
+
+            // Don't connect to ourselve.
+            if (isHeart)
+                continue;
+
+            // Find a way home.
+            CarveTunnelBetween(densityMap, worldPos, rootHeartPos, 4, chunkPos,32);
+        }
+    }
+
+    private void DrawCube(Vector3 pos, Vector3 size, Color color, string name)
+    {
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.transform.position = pos;
+        cube.transform.localScale = size;
+        cube.name = name;
+
+        Renderer cubeRenderer = cube.GetComponent<Renderer>();
+        if (cubeRenderer != null)
+        {
+            cubeRenderer.material.color = color;
+        }
+
+        this.Trash.Add(cube);
+    }
+
+    public float stepSize = 4f;
+    private void CarveTunnelBetween(
+        float[,,] densityMap,
+        Vector3 worldStart,
+        Vector3 worldEnd,
+        int tunnelRadius,
+        Vector3Int chunkPos,
+        int chunkSize
+    )
+    {
+        Vector3 direction = (worldEnd - worldStart).normalized;
+        float distance = Vector3.Distance(worldStart, worldEnd);
+
+        float stepSize = 0.1f; // Smaller steps for smoother results
+
+        // 1) Main carving loop
+        for (float d = 0f; d <= distance; d += stepSize)
+        {
+            Vector3 worldPoint = worldStart + direction * d;
+
+            // 2) Define the tunnel's influence on the density field
+            for (int x = -tunnelRadius; x <= tunnelRadius; x++)
             {
-                Vector3 point = worldNode; // In an infinite world, we carve based on world space
-
-                int maxRadius = Mathf.CeilToInt(tunnelRadius);
-                for (int x = -maxRadius; x <= maxRadius; x++)
+                for (int y = -tunnelRadius; y <= tunnelRadius; y++)
                 {
-                    for (int y = -maxRadius; y <= maxRadius; y++)
+                    for (int z = -tunnelRadius; z <= tunnelRadius; z++)
                     {
-                        for (int z = -maxRadius; z <= maxRadius; z++)
-                        {
-                            Vector3Int voxelPos = new Vector3Int(
-                                Mathf.RoundToInt(point.x) + x - chunkPos.x * width,
-                                Mathf.RoundToInt(point.y) + y - chunkPos.y * height,
-                                Mathf.RoundToInt(point.z) + z - chunkPos.z * depth
-                            );
+                        Vector3Int voxelPos = new Vector3Int(
+                            Mathf.RoundToInt(worldPoint.x) + x - chunkPos.x * chunkSize,
+                            Mathf.RoundToInt(worldPoint.y) + y - chunkPos.y * chunkSize,
+                            Mathf.RoundToInt(worldPoint.z) + z - chunkPos.z * chunkSize
+                        );
 
-                            if (voxelPos.x >= 0 && voxelPos.x < width &&
-                                voxelPos.y >= 0 && voxelPos.y < height &&
-                                voxelPos.z >= 0 && voxelPos.z < depth)
-                            {
-                                float dist = Vector3.Distance(voxelPos + chunkPos * width, point);
-                                if (dist <= tunnelRadius)
-                                {
-                                    densityMap[voxelPos.x, voxelPos.y, voxelPos.z] = 0;
-                                }
-                            }
+                        // Skip out-of-bounds voxels
+                        if (voxelPos.x < 0 || voxelPos.x >= densityMap.GetLength(0) ||
+                            voxelPos.y < 0 || voxelPos.y >= densityMap.GetLength(1) ||
+                            voxelPos.z < 0 || voxelPos.z >= densityMap.GetLength(2))
+                        {
+                            continue;
+                        }
+
+                        // Compute distance from the tunnel center
+                        float distToCenter = Vector3.Distance(voxelPos + chunkPos * chunkSize, worldPoint);
+
+                        // 3) Smoothly blend the tunnel's influence into the density field
+                        if (distToCenter < tunnelRadius)
+                        {
+                            // Use a smooth falloff function (e.g., cosine or polynomial)
+                            float falloff = Mathf.SmoothStep(1f, 0f, distToCenter / tunnelRadius);
+                            densityMap[voxelPos.x, voxelPos.y, voxelPos.z] -= falloff;
                         }
                     }
                 }
@@ -137,48 +273,7 @@ public class CaveGenerator : MonoBehaviour
         }
     }
 
-    private List<Vector3> GenerateNodes(System.Random rand, int numNodes, float segmentLength = 10f, float maxOffset = 5f)
-    {
-        List<Vector3> primaryNodes = new List<Vector3>();
-
-        // **Step 1: Generate Primary Nodes**
-        for (int i = 0; i < numNodes; i++)
-        {
-            float x = (float)rand.NextDouble() * width;
-            float y = (float)rand.NextDouble() * height;
-            float z = (float)rand.NextDouble() * depth;
-
-            Vector3 node = new Vector3(x, y, z);
-            primaryNodes.Add(node);
-        }
-
-        List<Vector3> finalNodes = new List<Vector3>();
-        for (int i = 0; i < primaryNodes.Count - 1; i++)
-        {
-            Vector3 start = primaryNodes[i];
-            Vector3 end = primaryNodes[i + 1];
-
-            Vector3 direction = (end - start).normalized;
-            float distance = Vector3.Distance(start, end);
-
-            // **Break path into segments**
-            for (float t = 0; t < distance; t += segmentLength)
-            {
-                Vector3 point = start + direction * t;
-
-                // **Add random offsets to create turns**
-                point.x += (float)(rand.NextDouble() * 2 - 1) * maxOffset;
-                point.y += (float)(rand.NextDouble() * 2 - 1) * maxOffset;
-                point.z += (float)(rand.NextDouble() * 2 - 1) * maxOffset;
 
 
-                finalNodes.Add(point);
-            }
-        }
 
-        // Add final primary node.
-        finalNodes.Add(primaryNodes[primaryNodes.Count - 1]);
-
-        return finalNodes;
-    }
 }
