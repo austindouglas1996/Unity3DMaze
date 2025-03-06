@@ -106,7 +106,6 @@ public static class MarchingCubes
         return mesh;
     }
 
-
     private static Vector3 InterpolateEdge(float threshold,Vector3 p1, Vector3 p2,float valP1, float valP2)
     {
         // Avoid dividing by zero

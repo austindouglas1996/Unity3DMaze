@@ -19,6 +19,7 @@ public class CaveGenerator : MonoBehaviour
     public float threshold = 0.5f;
     public int octaves = 12;
     public float noise = 0.1f;
+    public float floorHeight = 0.2f;
 
     [Header("Rendering")]
     public Material caveMaterial;
@@ -26,9 +27,41 @@ public class CaveGenerator : MonoBehaviour
     public int ChunkDimension = 2;
     private MeshFilter meshFilter;
 
+    private List<GameObject> Trash = new List<GameObject>();
+
     void Start()
     {
         this.Generate();
+    }
+
+    public void UpdateTerrainMesh(Vector3 chunkPos, Vector3 localPos, bool adding = true)
+    {
+        CaveChunk chunk = null;
+        foreach (Transform child in this.transform)
+        {
+            chunk = child.GetComponent<CaveChunk>();
+            if (chunk != null)
+            {
+                if (chunk.ChunkPos == chunkPos)
+                {
+                    chunk = child.GetComponent<CaveChunk>();
+                    break;
+                }
+            }
+        }
+
+        if (chunk == null)
+        {
+            Debug.Log("Failed to find chunk.");
+            return;
+        }
+
+        if (adding)
+            chunk.AddTerrain(localPos, 1f, 1f);
+        else
+            chunk.RemoveTerrain(localPos, 1f, 1f);
+
+        chunk.GenerateTerrain();
     }
 
     public void Generate()
@@ -42,6 +75,11 @@ public class CaveGenerator : MonoBehaviour
             }
         }
 
+        foreach (var item in this.Trash)
+        {
+            Destroy(item);
+        }
+
         for (int x = 0; x < ChunkDimension; x++)
         {
             for (int y = 0; y < ChunkDimension; y++)
@@ -52,17 +90,19 @@ public class CaveGenerator : MonoBehaviour
                     CaveChunk ch = Instantiate(ChunkPrefab,new Vector3(x * width, y * height, z * depth),Quaternion.identity,this.transform);
                     ch.ChunkPos = new Vector3Int(x, y, z);
 
-                    float[,,] densityMap = GenerateDensityMap(ch.ChunkPos);
+                    int worldX = ch.ChunkPos.x * width + x;
+                    int worldY = ch.ChunkPos.y * height + y;
+                    int worldZ = ch.ChunkPos.z * depth + z;
 
-                    ch.GetComponent<MeshFilter>().mesh =
-                        MarchingCubes.GenerateMesh(densityMap, width, height, depth, threshold, new Vector3(0,0,0));
                     ch.GetComponent<MeshRenderer>().material = caveMaterial;
+                    ch.generator = this;
+                    ch.GenerateTerrain();
                 }
             }
         }
     }
 
-    private float[,,] GenerateDensityMap(Vector3Int chunkPos)
+    public float[,,] GenerateDensityMap(Vector3Int chunkPos)
     {
         // Create a density map with an extra layer of padding for marching cubes
         float[,,] densityMap = new float[width + 1, height + 1, depth + 1];
@@ -84,6 +124,7 @@ public class CaveGenerator : MonoBehaviour
 
                     // Sample 3D Perlin noise at the world coordinates
                     float noiseValue = Perlin.Fbm(worldX * noise, worldY * noise, worldZ * noise, octaves);
+                    noiseValue *= Mathf.Abs(Perlin.Fbm(worldX * 0.02f, worldY * 0.02f, worldZ * 0.02f, octaves));
 
                     // Track min and max noise values
                     //if (noiseValue < minNoise) minNoise = noiseValue;
@@ -97,7 +138,9 @@ public class CaveGenerator : MonoBehaviour
                      */
                     noiseValue = (noiseValue + 0.5f);
 
-                    // Store the noise value in the density map
+                    noiseValue = HandleNoiseForFloor(new Vector3(worldX, worldY, worldZ), noiseValue);
+                    noiseValue = HandleNoiseForRoof(new Vector3(worldX, worldY,worldZ), noiseValue);
+
                     densityMap[x, y, z] = noiseValue;
                 }
             }
@@ -118,6 +161,93 @@ public class CaveGenerator : MonoBehaviour
         }
         */
 
+        EncloseDensityMap(ref densityMap);
+
         return densityMap;
+    }
+
+    private void EncloseDensityMap(ref float[,,] densityMap)
+    {
+        int sizeX = densityMap.GetLength(0);
+        int sizeY = densityMap.GetLength(1);
+        int sizeZ = densityMap.GetLength(2);
+
+        // Set front and back faces (Z-direction)
+        for (int x = 0; x < sizeX; x++)
+        {
+            for (int y = 0; y < sizeY; y++)
+            {
+                densityMap[x, y, 0] = 0.5f;
+                densityMap[x, y, sizeZ - 1] = 0.5f;
+            }
+        }
+
+        // Set top and bottom faces (Y-direction)
+        for (int x = 0; x < sizeX; x++)
+        {
+            for (int z = 0; z < sizeZ; z++)
+            {
+                densityMap[x, 0, z] = 0.5f;
+                densityMap[x, sizeY - 1, z] = 0.5f;
+            }
+        }
+
+        // Set left and right faces (X-direction)
+        for (int y = 0; y < sizeY; y++)
+        {
+            for (int z = 0; z < sizeZ; z++)
+            {
+                densityMap[0, y, z] = 0.5f;
+                densityMap[sizeX - 1, y, z] = 0.5f;
+            }
+        }
+    }
+
+    private float HandleNoiseForFloor(Vector3 worldPos, float noiseValueCurrent)
+    {
+        float worldX = worldPos.x;
+        float worldY = worldPos.y;
+        float worldZ = worldPos.z;
+
+        // Add bumpy floor at the bottom of the chunk
+        float floorHeight = Perlin.Fbm(worldX * 0.1f, 0, worldZ * 0.1f, octaves);
+        floorHeight = (floorHeight + 0.5f) * 2f;
+
+        // If the current voxel is below the floor height, make it solid
+        if (worldY < floorHeight)
+        {
+            // Apply additional noise to the floor for variation
+            float floorNoise = Perlin.Fbm(worldX * 0.05f, worldY * 0.05f, worldZ * 0.05f, octaves);
+            floorNoise = (floorNoise + 0.5f); // Normalize to [0, 1]
+
+            // Blend the floor noise with the base noise
+            noiseValueCurrent = Mathf.Lerp(noiseValueCurrent, 1f, floorNoise);
+        }
+
+        return noiseValueCurrent;
+    }
+
+    private float HandleNoiseForRoof(Vector3 worldPos, float noiseValueCurrent)
+    {
+        float worldX = worldPos.x;
+        float worldY = worldPos.y;
+        float worldZ = worldPos.z;
+
+        // Add bumpy ceiling at the top of the chunk
+        float ceilingHeight = Perlin.Fbm(worldX * 0.1f, worldY * 0.1f, worldZ * 0.1f, octaves);
+        ceilingHeight = (ceilingHeight + 0.5f) * 7f;  // Scale height variation
+
+        // If the current voxel is above the ceiling height, make it solid
+        if (worldY > (height - ceilingHeight))
+        {
+            // Apply additional noise to the ceiling for variation
+            float ceilingNoise = Perlin.Fbm(worldX * 0.05f, worldY * 0.05f, worldZ * 0.05f, octaves);
+            ceilingNoise = (ceilingNoise + 0.5f); // Normalize to [0, 1]
+
+            // Blend the ceiling noise with the base noise
+            noiseValueCurrent = Mathf.Lerp(noiseValueCurrent, 1f, ceilingNoise);
+        }
+
+        return noiseValueCurrent;
     }
 }
