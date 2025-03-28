@@ -106,15 +106,16 @@ public static class MarchingCubes
         return mesh;
     }
 
-    private static Vector3 InterpolateEdge(float threshold,Vector3 p1, Vector3 p2,float valP1, float valP2)
+    private static Vector3 InterpolateEdge(float threshold, Vector3 p1, Vector3 p2, float valP1, float valP2)
     {
-        // Avoid dividing by zero
+        // If values are nearly equal (flat), return midpoint instead of just one side
         if (Mathf.Approximately(valP1, valP2))
         {
-            return p1;
+            return (p1 + p2) * 0.5f;
         }
 
         float t = (threshold - valP1) / (valP2 - valP1);
         return Vector3.Lerp(p1, p2, t);
     }
+
 }
