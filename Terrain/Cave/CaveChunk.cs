@@ -5,19 +5,7 @@ public class CaveChunk : MonoBehaviour
 {
     public Vector3Int ChunkPos = new Vector3Int(0, 0, 0);
     public float[,,] DensityMap;
-    public bool forceUpdate = false;
     public CaveGenerator generator;
-
-    private void Update()
-    {
-        if (forceUpdate)
-        {
-            forceUpdate = false;
-            DensityMap = generator.UpdateDensityMap(ChunkPos);
-
-            GenerateTerrain();
-        }
-    }
 
     public void GenerateTerrain()
     {
