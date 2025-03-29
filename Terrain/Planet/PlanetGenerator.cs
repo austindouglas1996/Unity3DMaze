@@ -23,15 +23,17 @@ public class PlanetGenerator : MonoBehaviour
     public Vector3 WorldCenter;
     public Dictionary<Vector3Int, PlanetChunk> Chunks = new Dictionary<Vector3Int, PlanetChunk>();
 
+    public TerrainStore Store
+    {
+        get
+        {
+            return GetComponent<TerrainStore>();
+        }
+    }
+
     void Start()
     {
         this.Generate();
-    }
-
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(WorldCenter, Radius);
     }
 
     public void Generate()

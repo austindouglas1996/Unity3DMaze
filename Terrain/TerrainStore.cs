@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-
-[RequireComponent(typeof(MapGenerator))]    
+  
 public class TerrainStore : MonoBehaviour
 {
     public List<GameObject> GrassPrefabs = new List<GameObject>();

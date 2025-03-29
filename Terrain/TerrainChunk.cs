@@ -63,7 +63,7 @@ public class TerrainChunk : MonoBehaviour
         {
             if (this.GetComponent<FoliageGenerator>() != null && renderDetail < 3)
             {
-                this.GetComponent<FoliageGenerator>().ApplyMap(this.generator, terrainData);
+                //this.GetComponent<FoliageGenerator>().ApplyMap(this.generator, terrainData);
             }
 
             if (this.renderDetail > 12)
