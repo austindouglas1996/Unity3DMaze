@@ -37,14 +37,14 @@ public class TerrainEditor : MonoBehaviour
 
                 // Each chunk's world bounds
                 Bounds chunkBounds = new Bounds(
-                    chunk.transform.position + new Vector3(generator.width, generator.height, generator.depth) * 0.5f,
-                    new Vector3(generator.width, generator.height, generator.depth)
+                    chunk.transform.position + new Vector3(generator.ChunkSize.x, generator.ChunkSize.y, generator.ChunkSize.z) * 0.5f,
+                    new Vector3(generator.ChunkSize.x, generator.ChunkSize.y, generator.ChunkSize.z)
                 );
 
                 if (brushBounds.Intersects(chunkBounds))
                 {
                     // Modify this chunk using world-space brush
-                    chunk.ModifyTerrainWorld(worldPos, brushRadius, brushIntensity, adding);
+                    chunk.UpdateMap(worldPos, brushRadius, brushIntensity, adding);
                 }
             }
 

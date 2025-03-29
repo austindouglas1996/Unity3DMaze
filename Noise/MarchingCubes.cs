@@ -1,23 +1,234 @@
+﻿using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
-public static class MarchingCubesTables
+public static class MarchingCubes
 {
-    public static readonly Vector3[] CornerOffsets = new Vector3[]
+    public static float[,,] GenerateRoundMap(Vector3Int size, Vector3Int chunkPos, Vector3 centerPos, float radius)
     {
+        // Create a density map with an extra layer of padding for marching cubes
+        float[,,] densityMap = new float[size.x + 1, size.y + 1, size.z + 1];
+
+        for (int x = 0; x < size.x + 1; x++)
+        {
+            for (int y = 0; y < size.y + 1; y++)
+            {
+                for (int z = 0; z < size.z + 1; z++)
+                {
+                    // Convert local chunk coordinates to world coordinates
+                    int worldX = chunkPos.x * size.x + x;
+                    int worldY = chunkPos.y * size.y + y;
+                    int worldZ = chunkPos.z * size.z + z;
+
+                    // Distance from center of the planet
+                    Vector3 worldPos = new Vector3(worldX, worldY, worldZ);
+                    float dist = Vector3.Distance(worldPos, centerPos);
+
+                    densityMap[x, y, z] = (radius - dist);
+                }
+            }
+        }
+
+
+        return densityMap;
+    }
+
+    public static float[,,] GenerateSquareMap(Vector3Int size, Vector3Int chunkPos, float noise, int octaves)
+    {
+        // Create a density map with an extra layer of padding for marching cubes
+        float[,,] densityMap = new float[size.x + 1, size.y + 1, size.z + 1];
+
+        for (int x = 0; x < size.x + 1; x++)
+        {
+            for (int y = 0; y < size.y + 1; y++)
+            {
+                for (int z = 0; z < size.z + 1; z++)
+                {
+                    // Convert local chunk coordinates to world coordinates
+                    int worldX = chunkPos.x * size.x + x;
+                    int worldY = chunkPos.y * size.y + y;
+                    int worldZ = chunkPos.z * size.z + z;
+
+                    // Sample 3D Perlin noise at the world coordinates
+                    float noiseValue = Perlin.Fbm(worldX * noise, worldY * noise, worldZ * noise, octaves);
+                    noiseValue *= Mathf.Abs(Perlin.Fbm(worldX * 0.02f, worldY * 0.02f, worldZ * 0.02f, octaves));
+
+                    densityMap[x, y, z] = noiseValue;
+                }
+            }
+        }
+
+        return densityMap;
+    }
+
+    public static void ModifyMapWithBrush(ref float[,,] densityMap, Vector3Int chunkPos, Vector3 hitPoint, float radius, float intensity, bool add)
+    {
+        // IMPORTANT:
+        // The size of the collection will be +1 due to how marching cubes work.
+        int width = densityMap.GetLength(0)-1;
+        int height = densityMap.GetLength(1)-1;
+        int depth = densityMap.GetLength(2)-1;
+
+        Vector3 chunkWorldOrigin = new Vector3(
+            chunkPos.x * width,
+            chunkPos.y * height,
+            chunkPos.z * depth);
+
+        for (int x = 0; x <= width; x++)
+        {
+            for (int y = 0; y <= height; y++)
+            {
+                for (int z = 0; z <= depth; z++)
+                {
+                    Vector3 voxelWorldPos = chunkWorldOrigin + new Vector3(x, y, z);
+                    float dist = Vector3.Distance(voxelWorldPos, hitPoint);
+                    if (dist > radius) continue;
+
+                    float falloff = 1 - (dist / radius);
+                    float mod = intensity * falloff;
+
+                    if (add)
+                        densityMap[x, y, z] += mod;
+                    else
+                        densityMap[x, y, z] -= mod;
+
+                    densityMap[x, y, z] = Mathf.Clamp(densityMap[x, y, z], 0f, 1f);
+                }
+            }
+        }
+    }
+
+    public static Mesh GenerateMesh(float[,,] densityMap,int width,int height,int depth,float threshold,Vector3 chunkOffset)
+    {
+        List<Vector3> vertices = new List<Vector3>();
+        List<int> triangles = new List<int>();
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                for (int z = 0; z < depth; z++)
+                {
+                    // Gather corner values/positions
+                    float[] cornerVals = new float[8];
+                    Vector3[] cornerPos = new Vector3[8];
+
+                    for (int i = 0; i < 8; i++)
+                    {
+                        Vector3 offset = CornerOffsets[i];
+
+                        int cx = x + (int)offset.x;
+                        int cy = y + (int)offset.y;
+                        int cz = z + (int)offset.z;
+
+                        cornerVals[i] = densityMap[cx, cy, cz];
+                        cornerPos[i] = new Vector3(cx, cy, cz) + chunkOffset;
+                    }
+
+                    // Build the cubeIndex
+                    int cubeIndex = 0;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        if (cornerVals[i] > threshold)
+                            cubeIndex |= 1 << i;
+                    }
+
+                    // If no geometry, continue
+                    if (TriangleTable[cubeIndex, 0] == -1)
+                        continue;
+
+                    // Generate triangles from the lookup table
+                    for (int t = 0; TriangleTable[cubeIndex, t] != -1; t += 3)
+                    {
+                        int edgeIndex0 = TriangleTable[cubeIndex, t];
+                        int edgeIndex1 = TriangleTable[cubeIndex, t + 1];
+                        int edgeIndex2 = TriangleTable[cubeIndex, t + 2];
+
+                        // Interpolate each triangle corner
+                        Vector3 v1 = InterpolateEdge(
+                            threshold,
+                            cornerPos[EdgeConnections[edgeIndex0, 0]],
+                            cornerPos[EdgeConnections[edgeIndex0, 1]],
+                            cornerVals[EdgeConnections[edgeIndex0, 0]],
+                            cornerVals[EdgeConnections[edgeIndex0, 1]]
+                        );
+                        Vector3 v2 = InterpolateEdge(
+                            threshold,
+                            cornerPos[EdgeConnections[edgeIndex1, 0]],
+                            cornerPos[EdgeConnections[edgeIndex1, 1]],
+                            cornerVals[EdgeConnections[edgeIndex1, 0]],
+                            cornerVals[EdgeConnections[edgeIndex1, 1]]
+                        );
+                        Vector3 v3 = InterpolateEdge(
+                            threshold,
+                            cornerPos[EdgeConnections[edgeIndex2, 0]],
+                            cornerPos[EdgeConnections[edgeIndex2, 1]],
+                            cornerVals[EdgeConnections[edgeIndex2, 0]],
+                            cornerVals[EdgeConnections[edgeIndex2, 1]]
+                        );
+
+                        int baseIndex = vertices.Count;
+                        vertices.Add(v1);
+                        vertices.Add(v2);
+                        vertices.Add(v3);
+
+                        triangles.Add(baseIndex + 0);
+                        triangles.Add(baseIndex + 1);
+                        triangles.Add(baseIndex + 2);
+                    }
+                }
+            }
+        }
+
+        if (vertices.Count == 0)
+        {
+            Debug.Log("Mesh has 0 vertices.");
+        }
+
+        if (vertices.Count > 65535)
+        {
+            Debug.Log("Mesh size is too large. 65,000 is max");
+        }
+
+        // Build final mesh
+        Mesh mesh = new Mesh();
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // In case large chunk
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        return mesh;
+    }
+
+    private static Vector3 InterpolateEdge(float threshold, Vector3 p1, Vector3 p2, float valP1, float valP2)
+    {
+        // If values are nearly equal (flat), return midpoint instead of just one side
+        if (Mathf.Approximately(valP1, valP2))
+        {
+            return (p1 + p2) * 0.5f;
+        }
+
+        float t = (threshold - valP1) / (valP2 - valP1);
+        return Vector3.Lerp(p1, p2, t);
+    }
+
+    private static readonly Vector3[] CornerOffsets = new Vector3[]
+{
         new Vector3(0, 0, 0), new Vector3(1, 0, 0),
         new Vector3(1, 0, 1), new Vector3(0, 0, 1),
         new Vector3(0, 1, 0), new Vector3(1, 1, 0),
         new Vector3(1, 1, 1), new Vector3(0, 1, 1)
-    };
+};
 
-    public static readonly int[,] EdgeConnections = new int[,]
+    private static readonly int[,] EdgeConnections = new int[,]
     {
         {0, 1}, {1, 2}, {2, 3}, {3, 0},
         {4, 5}, {5, 6}, {6, 7}, {7, 4},
         {0, 4}, {1, 5}, {2, 6}, {3, 7}
     };
 
-    public static readonly int[,] TriangleTable = new int[,]
+    private static readonly int[,] TriangleTable = new int[,]
         {
         {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
         {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

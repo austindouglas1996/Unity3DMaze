@@ -1,23 +1,21 @@
 using UnityEngine;
 
-[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-public class CaveChunk : MonoBehaviour
+public class PlanetChunk : MonoBehaviour
 {
     public Vector3Int Coordinates = new Vector3Int(0, 0, 0);
     public Vector3 Position = new Vector3(0, 0, 0);
     public Vector3Int Size = new Vector3Int(0, 0, 0);
     private float[,,] DensityMap;
 
-    public void Generate(CaveGenerator generator, Vector3Int coordinates, Vector3Int size)
+    public void Generate(PlanetGenerator generator, Vector3Int coordinates, int size)
     {
         this.Coordinates = coordinates;
-        this.Position = new Vector3(coordinates.x * size.x, coordinates.y * size.y, coordinates.z * size.z);
-        this.Size = size;
+        this.Position = new Vector3(coordinates.x * size, coordinates.y * size, coordinates.z * size);
+        this.Size = new Vector3Int(size, size, size);
 
         this.name = $"Chunk X:{coordinates.x} Y:{coordinates.y} Z: {coordinates.z}";
 
-        //DensityMap = MarchingCubes.GenerateRoundMap(size, coordinates, generator.WorldCenter, size.x);
-        DensityMap = MarchingCubes.GenerateSquareMap(size, coordinates, generator.noise, generator.octaves);
+        DensityMap = MarchingCubes.GenerateRoundMap(this.Size, coordinates, generator.WorldCenter, generator.Radius);
 
         this.GenerateTerrain();
     }
@@ -31,7 +29,7 @@ public class CaveChunk : MonoBehaviour
 
     public void GenerateTerrain()
     {
-        GetComponent<MeshFilter>().mesh = MarchingCubes.GenerateMesh(DensityMap, Size.x, Size.y, Size.z, 0.5f, new Vector3(0, 0, 0));
+        GetComponent<MeshFilter>().mesh = MarchingCubes.GenerateMesh(DensityMap, Size.x, Size.y, Size.z, 0f, new Vector3(0, 0, 0));
 
         UpdateCollider();
     }
