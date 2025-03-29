@@ -5,7 +5,7 @@ public class TerrainEditor : MonoBehaviour
     public float brushRadius = 5f;
     public float brushIntensity = 0.1f;
     public float isolevel = 0.5f;
-    public CaveGenerator generator;
+    public PlanetGenerator generator;
 
     void Update()
     {
@@ -33,12 +33,12 @@ public class TerrainEditor : MonoBehaviour
 
             foreach (var pair in generator.Chunks)
             {
-                CaveChunk chunk = pair.Value;
+                PlanetChunk chunk = pair.Value;
 
                 // Each chunk's world bounds
                 Bounds chunkBounds = new Bounds(
-                    chunk.transform.position + new Vector3(generator.ChunkSize.x, generator.ChunkSize.y, generator.ChunkSize.z) * 0.5f,
-                    new Vector3(generator.ChunkSize.x, generator.ChunkSize.y, generator.ChunkSize.z)
+                    chunk.transform.position + new Vector3(generator.ChunkSize, generator.ChunkSize, generator.ChunkSize) * 0.5f,
+                    new Vector3(generator.ChunkSize, generator.ChunkSize, generator.ChunkSize)
                 );
 
                 if (brushBounds.Intersects(chunkBounds))

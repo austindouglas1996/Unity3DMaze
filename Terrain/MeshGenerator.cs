@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Collections;
+using static MeshData;
+using static UnityEditor.Searcher.SearcherWindow.Alignment;
 
 public static class MeshGenerator
 {
@@ -36,5 +38,18 @@ public static class MeshGenerator
         }
 
         return meshData;
+    }
+
+    public static Mesh GenerateMarchingCubeMesh(MarchingCube cube)
+    {
+        // Build final mesh
+        Mesh mesh = new Mesh();
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // In case large chunk
+        mesh.SetVertices(cube.vertices);
+        mesh.SetTriangles(cube.triangles, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        return mesh;
     }
 }

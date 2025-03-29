@@ -31,7 +31,10 @@ public class CaveChunk : MonoBehaviour
 
     public void GenerateTerrain()
     {
-        GetComponent<MeshFilter>().mesh = MarchingCubes.GenerateMesh(DensityMap, Size.x, Size.y, Size.z, 0.5f, new Vector3(0, 0, 0));
+        var cube = new MarchingCube();
+        cube.Process(DensityMap, 0.5f, new Vector3(0, 0, 0));
+
+        GetComponent<MeshFilter>().mesh = MeshGenerator.GenerateMarchingCubeMesh(cube);
 
         UpdateCollider();
     }
